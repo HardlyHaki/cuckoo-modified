@@ -31,14 +31,18 @@ class Suricata(Processing):
         self.key = "suricata"
         #General
         SURICATA_CONF = self.options.get("conf", None)
-        SURICATA_EVE_LOG = self.options.get("evelog", None)
-        SURICATA_FILE_LOG = self.options.get("fileslog", None)
-        SURICATA_FILES_DIR = self.options.get("filesdir", None)
-        SURICATA_RUNMODE = self.options.get("runmode", None)
-        Z7_PATH = self.options.get("7zbin", None)
-        FILES_ZIP_PASS = self.options.get("zippass", None)
-        SURICATA_FILE_COPY_DST_DIR = self.options.get("file_copy_dest_dir", None)
-        SURICATA_FILE_COPY_MAGIC_RE = self.options.get("file_magic_re", None)
+        SURICATA_ALERT = self.options.get("alertlog",None)
+        SURICATA_TLS = self.options.get("tlslog",None)
+        SURICATA_HTTP_LOG = self.options.get("httplog",None)
+        SURICATA_FILE_LOG = self.options.get("fileslog",None)
+        SURICATA_SSH_LOG = self.options.get("sshlog",None)
+        SURICATA_DNS_LOG = self.options.get("dnslog",None)
+        SURICATA_FILES_DIR = self.options.get("filesdir",None)
+        SURICATA_RUNMODE = self.options.get("runmode",None)
+        Z7_PATH = self.options.get("7zbin",None)
+        FILES_ZIP_PASS = self.options.get("zippass",None)
+        SURICATA_FILE_COPY_DST_DIR = self.options.get("file_copy_dest_dir",None)
+        SURICATA_FILE_COPY_MAGIC_RE = self.options.get("file_magic_re",None)
         if SURICATA_FILE_COPY_MAGIC_RE:
             try:
                 SURICATA_FILE_COPY_MAGIC_RE = re.compile(SURICATA_FILE_COPY_MAGIC_RE)
@@ -46,8 +50,8 @@ class Suricata(Processing):
                 log.warning("Failed to compile suricata copy magic RE" % (SURICATA_FILE_COPY_MAGIC_RE))
                 SURICATA_FILE_COPY_MAGIC_RE = None
         #Socket        
-        SURICATA_SOCKET_PATH = self.options.get("socket_file", None) 
-        SURICATA_SOCKET_PYLIB = self.options.get("pylib_dir", None)
+        SURICATA_SOCKET_PATH = self.options.get("socket_file",None) 
+        SURICATA_SOCKET_PYLIB = self.options.get("pylib_dir",None)
 
         #Command Line
         SURICATA_BIN = self.options.get("bin", None)
@@ -57,26 +61,31 @@ class Suricata(Processing):
         suricata["tls"]=[]
         suricata["perf"]=[]
         suricata["files"]=[]
-        suricata["http"]=[]      
+        suricata["http"]=[]
+        suricata["dns"]=[]
+        suricata["ssh"]=[]      
         suricata["file_info"]=[]
+        suricata["alert_log_full_path"] = None
+        suricata["tls_log_full_path"] = None
+        suricata["http_log_full_path"] = None
+        suricata["file_log_full_path"] = None
+        suricata["ssh_log_full_path"] = None
+        suricata["dns_log_full_path"] = None
 
-        SURICATA_EVE_LOG_FULL_PATH = "%s/%s" % (self.logs_path, SURICATA_EVE_LOG)
-        SURICATA_FILE_LOG_FULL_PATH = "%s/%s" % (self.logs_path, SURICATA_FILE_LOG)
-        SURICATA_FILES_DIR_FULL_PATH = "%s/%s" % (self.logs_path, SURICATA_FILES_DIR)
+        SURICATA_ALERT_FULL_PATH = "%s/%s" % (self.logs_path,SURICATA_ALERT)
+        SURICATA_TLS_FULL_PATH = "%s/%s" % (self.logs_path,SURICATA_TLS)
+        SURICATA_HTTP_LOG_FULL_PATH = "%s/%s" % (self.logs_path,SURICATA_HTTP_LOG)
+        SURICATA_FILE_LOG_FULL_PATH = "%s/%s" % (self.logs_path,SURICATA_FILE_LOG)
+        SURICATA_SSH_LOG_FULL_PATH = "%s/%s" % (self.logs_path,SURICATA_SSH_LOG)
+        SURICATA_DNS_LOG_FULL_PATH = "%s/%s" % (self.logs_path,SURICATA_DNS_LOG)
+        SURICATA_FILES_DIR_FULL_PATH = "%s/%s" % (self.logs_path,SURICATA_FILES_DIR)
 
         if not os.path.exists(SURICATA_CONF):
             log.warning("Unable to Run Suricata: Conf File %s Does Not Exist" % (SURICATA_CONF))
             return suricata["alerts"]
         if not os.path.exists(self.pcap_path):
             log.warning("Unable to Run Suricata: Pcap file %s Does Not Exist" % (self.pcap_path))
-            return suricata["alerts"]
-
-        # Add to this if you wish to ignore any SIDs for the suricata alert logs
-        sid_blacklist = [
-                        2200074,
-                        2210021,
-                        ]
-
+            return suricata["alerts"]            
         if SURICATA_RUNMODE == "socket": 
             if SURICATA_SOCKET_PYLIB != None:
                 sys.path.append(SURICATA_SOCKET_PYLIB)
@@ -94,7 +103,7 @@ class Suricata(Processing):
             args["filename"] = self.pcap_path 
             args["output-dir"] = self.logs_path 
 
-            suris = SuricataSC(SURICATA_SOCKET_PATH)
+            suris = SuricataSC(SURICATA_SOCKET_PATH, False)
             try:
                 suris.connect()
                 suris.send_command("pcap-file",args)
@@ -134,70 +143,78 @@ class Suricata(Processing):
             log.warning("Unknown Suricata Runmode")
             return suricata["alerts"]
 
-        if os.path.exists(SURICATA_EVE_LOG_FULL_PATH):
-            with open(SURICATA_EVE_LOG_FULL_PATH, "r") as eve_log:
-                data = eve_log.read()
-
-            for line in data.splitlines():
-                parsed = json.loads(line)
-                if parsed["event_type"] == "alert":
-                    if parsed["alert"]["signature_id"] not in sid_blacklist:
-                        alog = dict()
-                        alog["srcport"] = parsed["src_port"]
-                        alog["srcip"] = parsed["src_ip"]
-                        alog["dstport"] = parsed["dest_port"]
-                        alog["dstip"] = parsed["dest_ip"]
-                        alog["protocol"] = parsed["proto"]
-                        alog["timestamp"] = parsed["timestamp"].replace("T", " ")
-                        if parsed["alert"]["category"] == '':
-                            alog["category"] = "Undefined"
-                        else:
-                            alog["category"] = parsed["alert"]["category"]
-                        alog["signature"] = parsed["alert"]["signature"]
-                        suricata["alerts"].append(alog)
-
-                elif parsed["event_type"] == "http":
-                    hlog = dict()
-                    hlog["srcport"] = parsed["src_port"]
-                    hlog["srcip"] = parsed["src_ip"]
-                    hlog["dstport"] = parsed["dest_port"]
-                    hlog["dstip"] = parsed["dest_ip"]
-                    hlog["timestamp"] = parsed["timestamp"].replace("T", " ")
-                    hlog["hostname"] = parsed["http"]["hostname"]
-                    hlog["uri"] = parsed["http"]["url"]
-                    hlog["length"] = parsed["http"]["length"]
-                    try:
-                        hlog["status"] = parsed["http"]["status"]
-                    except:
-                        hlog["status"] = "None"
-                    hlog["method"] = parsed["http"]["http_method"]
-                    try:
-                       hlog["contenttype"] = parsed["http"]["http_content_type"]
-                    except:
-                        hlog["contenttype"] = "None"
-                    try:
-                        hlog["ua"] = parsed["http"]["http_user_agent"]
-                    except:
-                        hlog["ua"] = "None"
-                    suricata["http"].append(hlog)
-
-                elif parsed["event_type"] == "tls":
-                    tlog = dict()
-                    tlog["srcport"] = parsed["src_port"]
-                    tlog["srcip"] = parsed["src_ip"]
-                    tlog["dstport"] = parsed["dest_port"]
-                    tlog["dstip"] = parsed["dest_ip"]
-                    tlog["timestamp"] = parsed["timestamp"].replace("T", " ")
-                    tlog["fingerprint"] = parsed["tls"]["fingerprint"]
-                    tlog["issuer"] = parsed["tls"]["issuerdn"]
-                    tlog["version"] = parsed["tls"]["version"]
-                    tlog["subject"] = parsed["tls"]["subject"]
-                    suricata["tls"].append(tlog)
-
+        if os.path.exists(SURICATA_ALERT_FULL_PATH):
+           f = open(SURICATA_ALERT_FULL_PATH).readlines()
+           suricata["alert_log_full_path"] = SURICATA_ALERT_FULL_PATH 
+           for l in f:
+               try:
+                   e = json.loads(l)
+                   if e["event_type"] == "alert":
+                       suricata["alerts"].append(e)
+               except:
+                   log.warning("Suricata: Failed to parse line as json" % (l))
+                   continue
         else:
-            log.warning("Suricata: Failed to find eve log at %s" % (SURICATA_EVE_LOG_FULL_PATH))
+            log.warning("Suricata: Failed to find alert log at %s" % (SURICATA_ALERT_FULL_PATH))
+
+        if os.path.exists(SURICATA_TLS_FULL_PATH):
+            suricata["tls_log_full_path"] = SURICATA_TLS_FULL_PATH
+            f = open(SURICATA_TLS_FULL_PATH).readlines()
+            for l in f:
+                try:
+                    e = json.loads(l)
+                    if e["event_type"] == "tls":
+                       suricata["tls"].append(e)
+                except:
+                    log.warning("Suricata: Failed to parse line as json" % (l))
+                    continue 
+        else:
+            log.warning("Suricata: Failed to find TLS log at %s" % (SURICATA_TLS_FULL_PATH))
+
+        if os.path.exists(SURICATA_HTTP_LOG_FULL_PATH):
+            suricata["http_log_full_path"] = SURICATA_HTTP_LOG_FULL_PATH
+            f = open(SURICATA_HTTP_LOG_FULL_PATH).readlines()
+            for l in f:
+                try:
+                    e = json.loads(l)
+                    if e["event_type"] == "http":
+                       suricata["http"].append(e)
+                except:
+                    log.warning("Suricata: Failed to parse line as json" % (l))
+                    continue
+        else:
+            log.warning("Suricata: Failed to find http log at %s" % (SURICATA_HTTP_LOG_FULL_PATH))
+
+        if os.path.exists(SURICATA_SSH_LOG_FULL_PATH):
+            suricata["ssh_log_full_path"] = SURICATA_SSH_LOG_FULL_PATH
+            f = open(SURICATA_SSH_LOG_FULL_PATH).readlines()
+            for l in f:
+                try:
+                    e = json.loads(l)
+                    if e["event_type"] == "ssh":
+                       suricata["ssh"].append(e)
+                except:
+                    log.warning("Suricata: Failed to parse line as json" % (l))
+                    continue
+        else:
+            log.warning("Suricata: Failed to find http log at %s" % (SURICATA_SSH_LOG_FULL_PATH))
+
+        if os.path.exists(SURICATA_DNS_LOG_FULL_PATH):
+            suricata["dns_log_full_path"] = SURICATA_DNS_LOG_FULL_PATH
+            f = open(SURICATA_DNS_LOG_FULL_PATH).readlines()
+            for l in f:
+                try:
+                    e = json.loads(l)
+                    if e["event_type"] == "dns":
+                       suricata["dns"].append(e)
+                except:
+                    log.warning("Suricata: Failed to parse line as json" % (l))
+                    continue
+        else:
+            log.warning("Suricata: Failed to find http log at %s" % (SURICATA_DNS_LOG_FULL_PATH))
 
         if os.path.exists(SURICATA_FILE_LOG_FULL_PATH):
+            suricata["file_log_full_path"] = SURICATA_FILE_LOG_FULL_PATH
             f = open(SURICATA_FILE_LOG_FULL_PATH).readlines()
             for l in f:
                 try:

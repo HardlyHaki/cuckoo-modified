@@ -160,31 +160,6 @@ class MongoDB(Report):
 
         report["dropped"] = new_dropped
 
-        # Store the Zipped Droppings file in GridFS and reference it back in the report.
-        #cuckoo_dropped_zip_path = os.path.join(self.analysis_path, "cuckoodroppings.zip")
-        #cuckoo_dropped_zip = File(cuckoo_dropped_zip_path)
-        #if cuckoo_dropped_zip.valid():
-        #    cuckoo_droppings_id = self.store_file(cuckoo_dropped_zip)
-        #    report["zippeddroppings"] = {"cuckoo_droppings_id": cuckoo_droppings_id}
-        #    report["zippeddroppings"].update(results["zippeddroppings"])
-
-
-        # Walk through the suricata extracted files, store them in GridFS and update the
-        # report with the ObjectIds.
-        new_suricata_files = []
-        if results.has_key("suricata") and results["suricata"]:
-            if results["suricata"].has_key("files") and results["suricata"]["files"]:
-                for suricata_file_e in results["suricata"]["files"]:
-                    if suricata_file_e.has_key("file_info"):
-                        tmp_suricata_file_d = dict(suricata_file_e)
-                        suricata_file = File(suricata_file_e["file_info"]["path"])
-                        if suricata_file.valid():
-                            suricata_file_id = self.store_file(suricata_file, filename=suricata_file_e["file_info"]["name"])
-                            tmp_suricata_file_d["object_id"] = suricata_file_id
-                            new_suricata_files.append(tmp_suricata_file_d)
-
-                report["suricata"]["files"] = new_suricata_files
-
         # Add screenshots.
         report["shots"] = []
         shots_path = os.path.join(self.analysis_path, "shots")
@@ -243,18 +218,55 @@ class MongoDB(Report):
             report["behavior"] = dict(report["behavior"])
             report["behavior"]["processes"] = new_processes
 
+        #Store a count of martian processes
+        if results.has_key("behavior") and results["behavior"].has_key("martianlist") and results["behavior"]["martianlist"] and len(results["behavior"]["martianlist"]) > 0:
+            report["mlist_cnt"] = len(results["behavior"]["martianlist"])
+
         #Other info we want Quick access to from the web UI
         if results.has_key("virustotal") and results["virustotal"] and results["virustotal"].has_key("positives") and results["virustotal"].has_key("total"):
             report["virustotal_summary"] = "%s/%s" % (results["virustotal"]["positives"],results["virustotal"]["total"])
-        if results.has_key("suricata") and results["suricata"]:
-            if results["suricata"].has_key("tls") and len(results["suricata"]["tls"]) > 0:
-                report["suri_tls_cnt"] = len(results["suricata"]["tls"])
-            if results["suricata"] and results["suricata"].has_key("alerts") and len(results["suricata"]["alerts"]) > 0:
-                report["suri_alert_cnt"] = len(results["suricata"]["alerts"])
-            if results["suricata"].has_key("files") and len(results["suricata"]["files"]) > 0:
-                report["suri_file_cnt"] = len(results["suricata"]["files"])
-            if results["suricata"].has_key("http") and len(results["suricata"]["http"]) > 0:
-                report["suri_http_cnt"] = len(results["suricata"]["http"])
+        if report.has_key("suricata") and report["suricata"]:
+            suricata={}
+            suricata["info"]={}
+            suricata["info"]["id"]=report["info"]["id"]
+            new_suricata_files=[]
+            # Walk through the suricata extracted files, store them in GridFS and update the
+            # report with the ObjectIds
+            # Store the suri extracted files in GridFS and reference it back in the report.
+            suri_extracted_zip_path = os.path.join(self.analysis_path, "logs/files.zip")
+            suri_extracted_zip = File(suri_extracted_zip_path)
+            if suri_extracted_zip.valid():
+                suri_extracted_zip_id = self.store_file(suri_extracted_zip)
+                suricata["suri_extracted_zip"]=suri_extracted_zip_id
+
+            if report["suricata"].has_key("files") and len(report["suricata"]["files"]) > 0:
+                suricata["file_cnt"] = len(report["suricata"]["files"])
+                for suricata_file_e in report["suricata"]["files"]:
+                    if suricata_file_e.has_key("file_info"):
+                        tmp_suricata_file_d = dict(suricata_file_e)
+                        suricata_file = File(suricata_file_e["file_info"]["path"])
+                        if suricata_file.valid():
+                            suricata_file_id = self.store_file(suricata_file, filename=suricata_file_e["file_info"]["name"])
+                            tmp_suricata_file_d["object_id"] = suricata_file_id
+                            new_suricata_files.append(tmp_suricata_file_d)
+                suricata["files"] = new_suricata_files
+
+            if report["suricata"].has_key("tls") and len(report["suricata"]["tls"]) > 0:
+                suricata["tls_cnt"] = len(report["suricata"]["tls"])
+                suricata["tls"]=report["suricata"]["tls"]
+            if report["suricata"] and report["suricata"].has_key("alerts") and len(report["suricata"]["alerts"]) > 0:
+                suricata["alert_cnt"] = len(report["suricata"]["alerts"])
+                suricata["alerts"]=report["suricata"]["alerts"]
+            if report["suricata"].has_key("http") and len(report["suricata"]["http"]) > 0:
+                suricata["http_cnt"] = len(report["suricata"]["http"])
+                suricata["http"]=report["suricata"]["http"]
+            if report["suricata"].has_key("ssh") and len(report["suricata"]["ssh"]) > 0:
+                suricata["ssh_cnt"] = len(report["suricata"]["ssh"])
+                suricata["ssh"]=report["suricata"]["ssh"]
+            self.db.suricata.save(suricata)
+            #do not store this in analysis collection moved to own suricata collection to help avoid MONGO size limits
+            del report["suricata"]
+
         # Store the report and retrieve its object id.
         self.db.analysis.save(report)
         self.conn.disconnect()

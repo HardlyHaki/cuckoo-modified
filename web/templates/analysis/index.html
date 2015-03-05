@@ -30,8 +30,8 @@
                 <thead>
                 <tr>
                     <th width="3%">ID</th>
-                    <th width="12%">Timestamp</th>
-                    <th width="33%">Filename</th>
+                    <th width="10%">Timestamp</th>
+                    <th width="10%">Filename</th>
                     <th width="15%">MD5</th>
                     <th width="5%">VT</th>
                     <th width="5%">SuriAlert</th>
@@ -39,7 +39,10 @@
                     <th width="5%">SuriTLS</th>
                     <th width="5%">SuriFiles</th>
                     <th width="5%">Moloch</th>
-                    <th width="7%" style="text-align: right;">Status</th>
+                    <th width="5%">Martians</th>
+                    <th width="3%">PCAP</th>
+                    <th width="5%">Custom</th>
+                    <th width="5%" style="text-align: right;">Status</th>
                 </tr>
                 </thead>
                 <tbody>
@@ -74,28 +77,28 @@
                         </td>
                         <td>
                             {% if analysis.suri_alert_cnt %}
-                                <span class="mono">{{analysis.suri_alert_cnt}}</span>
+                                <a href="{% url "analysis.views.surialert" analysis.id %}" target="_blank"><span class="mono">Suri_Alert:{{analysis.suri_alert_cnt}}</span></a>
                             {% else %}
                                   <span class="mono">None</span>
                             {% endif %}
                         </td>
                         <td>
                             {% if analysis.suri_http_cnt %}
-                                <span class="mono">{{analysis.suri_http_cnt}}</span>
+                                <a href="{% url "analysis.views.surihttp" analysis.id %}" target="_blank"><span class="mono">Suri_HTTP:{{analysis.suri_http_cnt}}</span></a>
                             {% else %}
-                                  <span class="mono">None</span>
+                                <span class="mono">None</span>
                             {% endif %}
                         </td>
                         <td>
                             {% if analysis.suri_tls_cnt %}
-                                <span class="mono">{{analysis.suri_tls_cnt}}</span>
+                                <a href="{% url "analysis.views.suritls" analysis.id %}" target="_blank"><span class="mono">Suri_TLS:{{analysis.suri_tls_cnt}}</span></a>
                             {% else %}
-                                  <span class="mono">None</span>
+                                <span class="mono">None</span>
                             {% endif %}
                         </td>
                         <td>
                             {% if analysis.suri_file_cnt %}
-                                <span class="mono">{{analysis.suri_file_cnt}}</span>
+                                <a href="{% url "analysis.views.surifiles" analysis.id %}" target="_blank"><span class="mono">Suri_Files:{{analysis.suri_file_cnt}}</span></a>
                             {% else %}
                                   <span class="mono">None</span>
                             {% endif %}
@@ -105,6 +108,27 @@
                                 <a href={{analysis.moloch_url}} target="_blank"><span class="mono">MOLOCH</span></a>
                             {% else %}
                                   <span class="mono">None</span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            {% if analysis.mlist_cnt %}
+                                <span class="mono">{{analysis.mlist_cnt}}</span>
+                            {% else %}
+                                  <span class="mono">None</span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            {% if analysis.pcap_id %}
+                                <a href="{% url "analysis.views.file" "pcap" analysis.pcap_id %}" target="_blank"><span class="mono">PCAP</span></a>
+                            {% else %}
+                                  <span class="mono">None</span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            {% if analysis.custom %}
+                                 <span class="mono">{{analysis.custom}}</span>
+                            {% else %}
+                                 <span class="mono">None</span>
                             {% endif %}
                         </td>
                         <td style="text-align: right;">
@@ -158,14 +182,18 @@
                 <thead>
                 <tr>
                     <th width="3%">ID</th>
-                    <th width="12%">Timestamp</th>
-                    <th width="53%">URL</th>
+                    <th width="10%">Timestamp</th>
+                    <th width="15%">URL</th>
+                    <th width="5%">VT</th>
                     <th width="5%">SuriAlert</th>
                     <th width="5%">SuriHTTP</th>
                     <th width="5%">SuriTLS</th>
                     <th width="5%">SuriFiles</th>
                     <th width="5%">Moloch</th>
-                    <th width="7%" style="text-align: right;">Status</th>
+                    <th width="5%">Martians</th>
+                    <th width="5%">PCAP</th>
+                    <th width="5%">Custom</th>
+                    <th width="5%" style="text-align: right;">Status</th>
                 </tr>
                 </thead>
                 <tbody>
@@ -187,30 +215,37 @@
                             {% else %}
                                 <span class="mono">{{analysis.target}}</span>
                             {% endif %}
+                                       <td>
+                            {% if analysis.virustotal_summary %}
+                                <span class="mono">VT:{{analysis.virustotal_summary}}</span>
+                            {% else %}
+                                  <span class="mono">None</span>
+                            {% endif %}
+                        </td>
                         <td>
                             {% if analysis.suri_alert_cnt %}
-                                <span class="mono">{{analysis.suri_alert_cnt}}</span>
+                                <a href="{% url "analysis.views.surialert" analysis.id %}" target="_blank"><span class="mono">Suri_Alert:{{analysis.suri_alert_cnt}}</span></a>
                             {% else %}
                                   <span class="mono">None</span>
                             {% endif %}
                         </td>
                         <td>
                             {% if analysis.suri_http_cnt %}
-                                <span class="mono">{{analysis.suri_http_cnt}}</span>
+                                <a href="{% url "analysis.views.surihttp" analysis.id %}" target="_blank"><span class="mono">Suri_HTTP:{{analysis.suri_http_cnt}}</span></a>
                             {% else %}
-                                  <span class="mono">None</span>
+                                <span class="mono">None</span>
                             {% endif %}
                         </td>
                         <td>
                             {% if analysis.suri_tls_cnt %}
-                                <span class="mono">{{analysis.suri_tls_cnt}}</span>
+                                <a href="{% url "analysis.views.suritls" analysis.id %}" target="_blank"><span class="mono">Suri_TLS:{{analysis.suri_tls_cnt}}</span></a>
                             {% else %}
-                                  <span class="mono">None</span>
+                                <span class="mono">None</span>
                             {% endif %}
                         </td>
                         <td>
                             {% if analysis.suri_file_cnt %}
-                                <span class="mono">{{analysis.suri_file_cnt}}</span></a>
+                                <a href="{% url "analysis.views.surifiles" analysis.id %}" target="_blank"><span class="mono">Suri_Files:{{analysis.suri_file_cnt}}</span></a>
                             {% else %}
                                   <span class="mono">None</span>
                             {% endif %}
@@ -220,6 +255,27 @@
                                 <a href={{analysis.moloch_url}} target="_blank"><span class="mono">MOLOCH</span></a>
                             {% else %}
                                   <span class="mono">None</span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            {% if analysis.mlist_cnt %}
+                                <span class="mono">{{analysis.mlist_cnt}}</span>
+                            {% else %}
+                                  <span class="mono">None</span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            {% if analysis.pcap_id %}
+                                <a href="{% url "analysis.views.file" "pcap" analysis.pcap_id %}" target="_blank"><span class="mono">PCAP</span></a>
+                            {% else %}
+                                  <span class="mono">None</span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            {% if analysis.custom %}
+                                 <span class="mono">{{analysis.custom}}</span>
+                            {% else %}
+                                 <span class="mono">None</span>
                             {% endif %}
                         </td>
                         <td>
