@@ -619,10 +619,20 @@ def search(request):
                 records = results_db.suricata.find({"alerts.alert.signature_id": {"$regex" : value, "$options" : "-1"}}).sort([["_id", -1]])
             elif term == "surimsg":
                 records = results_db.suricata.find({"alerts.alert.signature": {"$regex" : value, "$options" : "-1"}}).sort([["_id", -1]])
-            elif term == "surihttpurl":
+            elif term == "suriurl":
                 records = results_db.suricata.find({"http.http.url": {"$regex" : value, "$options" : "-1"}}).sort([["_id", -1]])
-            elif term == "suritls":
-                records = results_db.suricata.find({"tls": {"$regex" : value, "$options" : "-1"}}).sort([["_id", -1]])
+            elif term == "suriua":
+                records = results_db.suricata.find({"http.http.http_user_agent": {"$regex" : value, "$options" : "-1"}}).sort([["_id", -1]])
+            elif term == "surireferer":
+                records = results_db.suricata.find({"http.http.http_refer": {"$regex" : value, "$options" : "-1"}}).sort([["_id", -1]])
+            elif term == "surihhost":
+                records = results_db.suricata.find({"http.http.hostname": {"$regex" : value, "$options" : "-1"}}).sort([["_id", -1]])
+            elif term == "suritlssubject":
+                records = results_db.suricata.find({"tls.tls.subject": {"$regex" : value, "$options" : "-1"}}).sort([["_id", -1]])
+            elif term == "suritlsissuerdn":
+                records = results_db.suricata.find({"tls.tls.issuerdn": {"$regex" : value, "$options" : "-1"}}).sort([["_id", -1]])
+            elif term == "suritlsfingerprint":
+                records = results_db.suricata.find({"tls.tls.fingerprint": {"$regex" : value, "$options" : "-1"}}).sort([["_id", -1]])
             elif term == "clamav":
                 records = results_db.analysis.find({"target.file.clamav": {"$regex": value, "$options": "-i"}}).sort([["_id", -1]])
             elif term == "yaraname":
