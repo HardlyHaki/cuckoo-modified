@@ -57,7 +57,10 @@ def index(request):
             if options:
                 options += ","
             options += "procmemdump=yes"
-
+        if request.POST.get("kernel_analysis"):
+            if options:
+                options += ","
+            options += "kernel_analysis=yes"
         if gateway:
             if "," in settings.GATEWAYS[gateway]:
                 tgateway = random.choice(settings.GATEWAYS[gateway].split(","))
@@ -67,7 +70,6 @@ def index(request):
             if options:
                 options += ","
             options += "setgw=%s" % (ngateway)
-
         db = Database()
         task_ids = []
         task_machines = []
