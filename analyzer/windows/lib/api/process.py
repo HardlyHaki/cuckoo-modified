@@ -27,6 +27,7 @@ from lib.common.defines import MEM_RESERVE, MEM_COMMIT, PAGE_READWRITE
 from lib.common.defines import MEMORY_BASIC_INFORMATION
 from lib.common.defines import WAIT_TIMEOUT, EVENT_MODIFY_STATE
 from lib.common.defines import MEM_IMAGE, MEM_MAPPED, MEM_PRIVATE
+from lib.common.defines import GENERIC_READ, GENERIC_WRITE, OPEN_EXISTING
 from lib.common.errors import get_error_string
 from lib.common.rand import random_string
 from lib.common.results import NetlogFile
@@ -278,8 +279,8 @@ class Process:
             config.write("pipe={0}\n".format(PIPE))
                 
         log.info("Sending startup information")
-        hFile = win32file.CreateFile(PATH_KERNEL_DRIVER, win32file.GENERIC_READ|win32file.GENERIC_WRITE,
-                                    0, None, win32file.OPEN_EXISTING, 0, None)
+        hFile = KERNEL32.CreateFileA(PATH_KERNEL_DRIVER, GENERIC_READ|GENERIC_WRITE,
+                                    0, None, OPEN_EXISTING, 0, None)
         if os_is_64bit:
             KERNEL32.Wow64RevertWow64FsRedirection(wow64)
         if hFile:
@@ -305,9 +306,9 @@ class Process:
                     flag = 0
                 flag = KERNEL32.Process32Next(snapshot, byref(proc_info)) 
             msg = str(self.pid)+"_"+str(ppid)+"_"+str(os.getpid())+"_"+str(pi.dwProcessId)+"_"+str(pid_vboxservice)+"_"+str(pid_vboxtray)+'\0'
-            win32file.DeviceIoControl(hFile, IOCTL_PID, msg, None)
+            KERNEL32.DeviceIoControl(hFile, IOCTL_PID, msg, None)
             msg = os.getcwd()+'\0'
-            win32file.DeviceIoControl(hFile, IOCTL_CUCKOO_PATH, unicode(msg), None)
+            KERNEL32.DeviceIoControl(hFile, IOCTL_CUCKOO_PATH, unicode(msg), None)
         else:
             log.warning("Failed to access kernel driver")
 
