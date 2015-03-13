@@ -7,8 +7,13 @@ import logging
 import random
 import subprocess
 import platform
-import win32file
-import win32api
+try:
+    import win32file
+    import win32api
+    have_pywin32 = True
+except:
+    have_pywin32 = False
+
 from time import time
 from ctypes import byref, c_ulong, create_string_buffer, c_int, sizeof
 from shutil import copy
@@ -213,6 +218,9 @@ class Process:
         """
         log.info("Starting kernel analysis")
         log.info("Installing driver")
+        if not have_pywin32:
+                log.warning("Failed to import pywin32 functions win32file and win32api analysis aborted")
+                return False
         if is_os_64bit(): 
             sys_file = os.path.join(os.getcwd(), "dll", "zer0m0n_x64.sys")
         else:
@@ -221,7 +229,7 @@ class Process:
         if not sys_file or not exe_file or not os.path.exists(sys_file) or not os.path.exists(exe_file):
                 log.warning("No valid zer0m0n files to be used for process with pid %d, injection aborted", self.pid)
                 return False
-                
+                    
         exe_name = random_string(6)
         service_name = random_string(6)
         driver_name = random_string(6)
