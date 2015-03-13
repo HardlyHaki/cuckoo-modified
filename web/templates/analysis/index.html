@@ -38,8 +38,9 @@
                     <th width="5%">SuriHTTP</th>
                     <th width="5%">SuriTLS</th>
                     <th width="5%">SuriFiles</th>
-                    <th width="5%">Moloch</th>
-                    <th width="5%">Martians</th>
+                    {% if global_settings.moloch_enabled %}
+                        <th width="5%">Moloch</th>
+                    {% endif %}
                     <th width="3%">PCAP</th>
                     <th width="5%">Custom</th>
                     <th width="5%" style="text-align: right;">Status</th>
@@ -103,13 +104,15 @@
                                   <span class="mono">None</span>
                             {% endif %}
                         </td>
-                        <td>
-                            {% if analysis.moloch_url %}
-                                <a href={{analysis.moloch_url}} target="_blank"><span class="mono">MOLOCH</span></a>
-                            {% else %}
-                                  <span class="mono">None</span>
-                            {% endif %}
-                        </td>
+                        {% if global_settings.moloch_enabled %}
+                            <td>
+                                {% if analysis.moloch_url %}
+                                    <a href={{analysis.moloch_url}} target="_blank"><span class="mono">MOLOCH</span></a>
+                                {% else %}
+                                   <span class="mono">None</span>
+                                {% endif %}
+                           </td>
+                        {% endif %}
                         <td>
                             {% if analysis.mlist_cnt %}
                                 <span class="mono">{{analysis.mlist_cnt}}</span>
@@ -189,8 +192,12 @@
                     <th width="5%">SuriHTTP</th>
                     <th width="5%">SuriTLS</th>
                     <th width="5%">SuriFiles</th>
-                    <th width="5%">Moloch</th>
-                    <th width="5%">Martians</th>
+                    {% if global_settings.moloch_enabled %}
+                        <th width="5%">Moloch</th>
+                    {% endif %}
+                    {% if global_settings.display_ie_martians %}
+                        <th width="5%">Martians</th>
+                    {% endif %}
                     <th width="5%">PCAP</th>
                     <th width="5%">Custom</th>
                     <th width="5%" style="text-align: right;">Status</th>
@@ -250,13 +257,16 @@
                                   <span class="mono">None</span>
                             {% endif %}
                         </td>
-                        <td>
-                            {% if analysis.moloch_url %}
-                                <a href={{analysis.moloch_url}} target="_blank"><span class="mono">MOLOCH</span></a>
-                            {% else %}
-                                  <span class="mono">None</span>
-                            {% endif %}
-                        </td>
+                        {% if global_settings.moloch_enabled %}
+                            <td>
+                                {% if analysis.moloch_url %}
+                                    <a href={{analysis.moloch_url}} target="_blank"><span class="mono">MOLOCH</span></a>
+                                {% else %}
+                                   <span class="mono">None</span>
+                                {% endif %}
+                           </td>
+                        {% endif %}
+                       {% if global_settings.display_ie_martians %}                       
                         <td>
                             {% if analysis.mlist_cnt %}
                                 <span class="mono">{{analysis.mlist_cnt}}</span>
@@ -264,6 +274,7 @@
                                   <span class="mono">None</span>
                             {% endif %}
                         </td>
+                        {% endif %}
                         <td>
                             {% if analysis.pcap_id %}
                                 <a href="{% url "analysis.views.file" "pcap" analysis.pcap_id %}" target="_blank"><span class="mono">PCAP</span></a>

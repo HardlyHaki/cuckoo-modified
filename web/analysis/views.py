@@ -30,6 +30,17 @@ fs = GridFS(results_db)
 
 TASK_LIMIT = 25
 
+global_settings=dict()
+if settings.MOLOCH_ENABLED:
+    global_settings["moloch_enabled"] = True
+else:
+    global_settings["moloch_enabled"] = False
+
+if settings.DISPLAY_IE_MARTIANS:
+    global_settings["display_ie_martians"] = True 
+else:
+    global_settings["display_ie_martians"] = False 
+
 @require_safe
 def index(request, page=1):
     page = int(page)
@@ -79,7 +90,7 @@ def index(request, page=1):
             if db.view_errors(task.id):
                 new["errors"] = True
 
-            rtmp = results_db.analysis.find_one({"info.id": int(new["id"])},{"virustotal_summary": 1, "mlist_cnt": 1, "network.pcap_id":1,"info.custom":1},sort=[("_id", pymongo.DESCENDING)])
+            rtmp = results_db.analysis.find_one({"info.id": int(new["id"])},{"virustotal_summary": 1,"network.pcap_id":1, "info.custom":1},sort=[("_id", pymongo.DESCENDING)])
             stmp = results_db.suricata.find_one({"info.id": int(new["id"])},{"tls_cnt": 1, "alert_cnt": 1, "http_cnt": 1, "file_cnt": 1, "http_log_id": 1, "tls_log_id": 1, "alert_log_id": 1, "file_log_id": 1},sort=[("_id", pymongo.DESCENDING)])
             if rtmp:
                 if rtmp.has_key("virustotal_summary") and rtmp["virustotal_summary"]:
@@ -127,17 +138,19 @@ def index(request, page=1):
             if db.view_errors(task.id):
                 new["errors"] = True
 
-            rtmp = results_db.analysis.find_one({"info.id": int(new["id"])},{"virustotal_summary": 1, "mlist_cnt": 1, "network.pcap_id":1,"info.custom":1},sort=[("_id", pymongo.DESCENDING)])
+            rtmp = results_db.analysis.find_one({"info.id": int(new["id"])},{"virustotal_summary": 1, "network.pcap_id":1, "info.custom":1, "signatures":1},sort=[("_id", pymongo.DESCENDING)])
             stmp = results_db.suricata.find_one({"info.id": int(new["id"])},{"tls_cnt": 1, "alert_cnt": 1, "http_cnt": 1, "file_cnt": 1, "http_log_id": 1, "tls_log_id": 1, "alert_log_id": 1, "file_log_id": 1},sort=[("_id", pymongo.DESCENDING)])
             if rtmp:
                 if rtmp.has_key("virustotal_summary") and rtmp["virustotal_summary"]:
                     new["virustotal_summary"] = rtmp["virustotal_summary"]
-                if rtmp.has_key("mlist_cnt") and rtmp["mlist_cnt"]:
-                    new["mlist_cnt"] = rtmp["mlist_cnt"]
                 if rtmp.has_key("network") and rtmp["network"].has_key("pcap_id") and rtmp["network"]["pcap_id"]:
                     new["pcap_id"] = rtmp["network"]["pcap_id"]
                 if rtmp.has_key("info") and rtmp["info"].has_key("custom") and rtmp["info"]["custom"]:
                     new["custom"] = rtmp["info"]["custom"]
+                if settings.DISPLAY_IE_MARTIANS and rtmp.has_key("signatures"):
+                    for entry in rtmp["signatures"]:
+                        if entry["name"] == "ie_martian_children":
+                            new["mlist_cnt"] = len(entry["data"])                        
             if settings.MOLOCH_ENABLED:
                 if settings.MOLOCH_BASE[-1] != "/":
                     settings.MOLOCH_BASE = settings.MOLOCH_BASE + "/"
@@ -163,10 +176,9 @@ def index(request, page=1):
             analyses_urls.append(new)
     else:
         paging["show_url_next"] = "hide"
-
     return render_to_response("analysis/index.html",
             {"files": analyses_files, "urls": analyses_urls,
-             "paging": paging}, context_instance=RequestContext(request))
+             "paging": paging, "global_settings":global_settings}, context_instance=RequestContext(request))
 
 @require_safe
 def pending(request):
@@ -645,6 +657,7 @@ def search(request):
                 return render_to_response("analysis/search.html",
                                           {"analyses": None,
                                            "term": request.POST["search"],
+                                           "global_settings": global_settings,
                                            "error": "Invalid search term: %s" % term},
                                           context_instance=RequestContext(request))
         else:
@@ -662,6 +675,7 @@ def search(request):
                 return render_to_response("analysis/search.html",
                                           {"analyses": None,
                                            "term": None,
+                                           "global_settings": global_settings,
                                            "error": "Unable to recognize the search syntax"},
                                           context_instance=RequestContext(request))
 
@@ -721,12 +735,14 @@ def search(request):
         return render_to_response("analysis/search.html",
                                   {"analyses": analyses,
                                    "term": request.POST["search"],
+                                   "global_settings": global_settings,
                                    "error": None},
                                   context_instance=RequestContext(request))
     else:
         return render_to_response("analysis/search.html",
                                   {"analyses": None,
                                    "term": None,
+                                   "global_settings": global_settings,
                                    "error": None},
                                   context_instance=RequestContext(request))
 

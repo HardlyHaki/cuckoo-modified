@@ -218,10 +218,6 @@ class MongoDB(Report):
             report["behavior"] = dict(report["behavior"])
             report["behavior"]["processes"] = new_processes
 
-        #Store a count of martian processes
-        if results.has_key("behavior") and results["behavior"].has_key("martianlist") and results["behavior"]["martianlist"] and len(results["behavior"]["martianlist"]) > 0:
-            report["mlist_cnt"] = len(results["behavior"]["martianlist"])
-
         #Other info we want Quick access to from the web UI
         if results.has_key("virustotal") and results["virustotal"] and results["virustotal"].has_key("positives") and results["virustotal"].has_key("total"):
             report["virustotal_summary"] = "%s/%s" % (results["virustotal"]["positives"],results["virustotal"]["total"])

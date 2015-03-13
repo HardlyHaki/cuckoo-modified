@@ -15,6 +15,7 @@ cfg = Config("reporting").mongodb
 moloch_cfg = Config("reporting").moloch
 aux_cfg =  Config("auxiliary")
 vtdl_cfg = Config("auxiliary").virustotaldl
+ie_martians_cfg = Config("auxiliary").iemartiansinwebui
 
 # Checks if mongo reporting is enabled in Cuckoo.
 if not cfg.get("enabled"):
@@ -30,6 +31,7 @@ MOLOCH_NODE = moloch_cfg.get("node", None)
 MOLOCH_ENABLED = moloch_cfg.get("enabled", False)
 
 GATEWAYS = aux_cfg.get("gateways")
+DISPLAY_IE_MARTIANS = ie_martians_cfg.get("enabled", False)
 VTDL_ENABLED = vtdl_cfg.get("enabled",False)
 VTDL_KEY = vtdl_cfg.get("dlkey",None)
 VTDL_PATH = vtdl_cfg.get("dlpath",None)
