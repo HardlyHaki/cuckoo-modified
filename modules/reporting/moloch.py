@@ -177,8 +177,8 @@ class Moloch(Report):
                                self.fileshash[tmpdict['hash']]['md5']=[]
                                self.fileshash[tmpdict['hash']]['sha1']=[]
                                self.fileshash[tmpdict['hash']]['sha256']=[]
-                               self.fileshash[tmpdict['hash']]['crc32']=[]
-                               self.fileshash[tmpdict['hash']]['ssdeep']=[]
+                               #self.fileshash[tmpdict['hash']]['crc32']=[]
+                               #self.fileshash[tmpdict['hash']]['ssdeep']=[]
                                self.fileshash[tmpdict['hash']]['yara']=[]
                            if entry["file_info"]["clamav"] and entry["file_info"]["clamav"] not in self.fileshash[tmpdict['hash']]['clamav']:
                                self.fileshash[tmpdict['hash']]['clamav'].append("clamav:%s" % (re.sub(r"[\W]","_",entry["file_info"]["clamav"])))
@@ -188,17 +188,19 @@ class Moloch(Report):
                                self.fileshash[tmpdict['hash']]['sha1'].append("sha1:%s" % (entry["file_info"]["sha1"]))
                            if entry["file_info"]["sha256"] and entry["file_info"]["sha256"] not in self.fileshash[tmpdict['hash']]['sha256']:
                                self.fileshash[tmpdict['hash']]['sha256'].append("sha256:%s" % (entry["file_info"]["sha256"]))
-                           if entry["file_info"]["crc32"] and entry["file_info"]["crc32"] not in self.fileshash[tmpdict['hash']]['crc32']:
-                               self.fileshash[tmpdict['hash']]['crc32'].append("crc32:%s" % (entry["file_info"]["crc32"]))
-                           if entry["file_info"]["ssdeep"] and entry["file_info"]["ssdeep"] not in self.fileshash[tmpdict['hash']]['ssdeep']:
-                               self.fileshash[tmpdict['hash']]['ssdeep'].append("ssdeep:%s" % (entry["file_info"]["ssdeep"]))
+                           #these actually seem to be a bit worthless inside of moloch
+                           #if entry["file_info"]["crc32"] and entry["file_info"]["crc32"] not in self.fileshash[tmpdict['hash']]['crc32']:
+                           #    self.fileshash[tmpdict['hash']]['crc32'].append("crc32:%s" % (entry["file_info"]["crc32"]))
+                           #if entry["file_info"]["ssdeep"] and entry["file_info"]["ssdeep"] not in self.fileshash[tmpdict['hash']]['ssdeep']:
+                           #    self.fileshash[tmpdict['hash']]['ssdeep'].append("ssdeep:%s" % (entry["file_info"]["ssdeep"]))
                            if entry["file_info"]["yara"]:
                                   for sign in entry["file_info"]["yara"]:
                                       if sign["name"] not in self.fileshash[tmpdict['hash']]['yara']:
                                           self.fileshash[tmpdict['hash']]['yara'].append("yara:%s" % (sign["name"]))
 
                for entry in self.fileshash:
-                   tags = ','.join(map(str,self.fileshash[entry]['clamav']) + map(str,self.fileshash[entry]['md5']) + map(str,self.fileshash[entry]['sha1']) + map(str,self.fileshash[entry]['sha256']) + map(str,self.fileshash[entry]['crc32']) + map(str,self.fileshash[entry]['ssdeep']) + map(str,self.fileshash[entry]['yara']))
+                   #tags = ','.join(map(str,self.fileshash[entry]['clamav']) + map(str,self.fileshash[entry]['md5']) + map(str,self.fileshash[entry]['sha1']) + map(str,self.fileshash[entry]['sha256']) + map(str,self.fileshash[entry]['crc32']) + map(str,self.fileshash[entry]['ssdeep']) + map(str,self.fileshash[entry]['yara']))
+                   tags = ','.join(map(str,self.fileshash[entry]['clamav']) + map(str,self.fileshash[entry]['md5']) + map(str,self.fileshash[entry]['sha1']) + map(str,self.fileshash[entry]['sha256']) + map(str,self.fileshash[entry]['yara']))
                    if tags:
                        self.update_tags(tags,self.fileshash[entry]['expression'])                
         return {} 
