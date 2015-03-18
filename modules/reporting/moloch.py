@@ -14,6 +14,7 @@ import time
 import socket
 import struct
 import copy
+import base64
 
 from lib.cuckoo.common.constants import CUCKOO_ROOT
 from lib.cuckoo.common.abstracts import Report 
@@ -30,9 +31,16 @@ class Moloch(Report):
     
     # This was useful http://blog.alejandronolla.com/2013/04/06/moloch-capturing-and-indexing-network-traffic-in-realtime/
     def update_tags(self,tags,expression):
-        auth_handler = urllib2.HTTPDigestAuthHandler()
-        auth_handler.add_password(self.MOLOCH_REALM, self.MOLOCH_URL, self.MOLOCH_USER, self.MOLOCH_PASSWORD)
-        opener = urllib2.build_opener(auth_handler)
+        # support cases where we might be doing basic auth through a proxy
+        if self.MOLOCH_AUTH == "basic":
+            base64string = base64.encodestring('%s:%s' % (self.MOLOCH_USER,self.MOLOCH_PASWORD))
+            opener = urllib2.build_opener()
+            opener.add_header("Authorization", "Basic %s" % base64string)
+        else: 
+            auth_handler = urllib2.HTTPDigestAuthHandler()
+            auth_handler.add_password(self.MOLOCH_REALM, self.MOLOCH_URL, self.MOLOCH_USER, self.MOLOCH_PASSWORD)
+            opener = urllib2.build_opener(auth_handler)
+
         data = urllib.urlencode({'tags' : tags})
         qstring = urllib.urlencode({'date' : "-1",'expression' : expression})
         TAG_URL = self.MOLOCH_URL + 'addTags?' + qstring
@@ -59,10 +67,20 @@ class Moloch(Report):
         self.MOLOCH_USER = self.options.get("user",None)
         self.MOLOCH_PASSWORD = self.options.get("pass",None) 
         self.MOLOCH_REALM = self.options.get("realm",None)
+        self.MOLOCH_AUTH = self.options.get("auth","digest")
         self.pcap_path = os.path.join(self.analysis_path, "dump.pcap")
         self.MOLOCH_URL = self.options.get("base",None)
         self.task_id = results["info"]["id"]
+        if results["info"].has_key("machine") and results["info"]["machine"].has_key("name"):
+            self.machine_name = re.sub(r"[\W]","_",str(results["info"]["machine"]["name"]))
+        else:
+            self.machine_name = "Unknown"
 
+        if results["info"].has_key("options") and results["info"]["options"].has_key("gw"):
+            self.gateway = re.sub(r"[\W]","_",str(results["info"]["options"]["gw"]))
+        else:
+            self.gateway = "Default"
+        
         if not os.path.exists(self.MOLOCH_CAPTURE_BIN):
             log.warning("Unable to Run moloch-capture: BIN File %s Does Not Exist" % (self.MOLOCH_CAPTURE_BIN))
             return
@@ -71,7 +89,7 @@ class Moloch(Report):
             log.warning("Unable to Run moloch-capture Conf File %s Does Not Exist" % (self.MOLOCH_CAPTURE_CONF))
             return         
         try:
-            cmd = "%s -c %s -r %s -n %s -t %s:%s" % (self.MOLOCH_CAPTURE_BIN,self.MOLOCH_CAPTURE_CONF,self.pcap_path,self.CUCKOO_INSTANCE_TAG,self.CUCKOO_INSTANCE_TAG,self.task_id)
+            cmd = "%s -c %s -r %s -n %s -t %s:%s -t cuckoo_jtype:%s -t cuckoo_machine:%s -t cuckoo_gw:%s" % (self.MOLOCH_CAPTURE_BIN,self.MOLOCH_CAPTURE_CONF,self.pcap_path,self.CUCKOO_INSTANCE_TAG,self.CUCKOO_INSTANCE_TAG,self.task_id,self.task["category"],self.machine_name,self.gateway)
             time.sleep(1)
         except Exception,e:
             log.warning("Unable to Build Basic Moloch CMD: %s" % e)
@@ -101,6 +119,9 @@ class Moloch(Report):
             if results["target"]["file"].has_key("yara"):
                 for entry in results["target"]["file"]["yara"]:
                     cmd = cmd + " -t \"yara:%s\"" % entry["name"]
+        if results.has_key("signatures") and results["signatures"]:
+            for entry in results["signatures"]:
+                cmd = cmd + " -t \"cuckoosig:%s:%s\"" % (re.sub(r"[\W]","_",str(entry["name"])),re.sub(r"[\W]","_",str(entry["severity"])))
         try:                   
             ret,stdout,stderr = self.cmd_wrapper(cmd)
             if ret == 0:
