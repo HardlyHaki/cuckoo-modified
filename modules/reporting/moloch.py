@@ -33,9 +33,10 @@ class Moloch(Report):
     def update_tags(self,tags,expression):
         # support cases where we might be doing basic auth through a proxy
         if self.MOLOCH_AUTH == "basic":
-            base64string = base64.encodestring('%s:%s' % (self.MOLOCH_USER,self.MOLOCH_PASWORD))
-            opener = urllib2.build_opener()
-            opener.add_header("Authorization", "Basic %s" % base64string)
+            auth_handler = urllib2.HTTPPasswordMgrWithDefaultRealm()
+            auth_handler.add_password(None, self.MOLOCH_URL, self.MOLOCH_USER, self.MOLOCH_PASSWORD)
+            handler = urllib2.HTTPBasicAuthHandler(auth_handler)
+            opener = urllib2.build_opener(handler)
         else: 
             auth_handler = urllib2.HTTPDigestAuthHandler()
             auth_handler.add_password(self.MOLOCH_REALM, self.MOLOCH_URL, self.MOLOCH_USER, self.MOLOCH_PASSWORD)
