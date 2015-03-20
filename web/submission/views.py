@@ -1,7 +1,7 @@
 # Copyright (C) 2010-2015 Cuckoo Foundation.
 # This file is part of Cuckoo Sandbox - http://www.cuckoosandbox.org
 # See the file 'docs/LICENSE' for copying permission.
-
+import re
 import os
 import sys
 import requests
@@ -95,7 +95,7 @@ def index(request):
                 # let it persist between reboot (if user like to configure it in that way).
                 path = store_temp_file(sample.read(),
                                        sample.name)
-    
+                os.chmod(path, 0664) 
                 for entry in task_machines:
                     task_id = db.add_path(file_path=path,
                                           package=package,
@@ -111,13 +111,16 @@ def index(request):
                         task_ids.append(task_id)
         elif "url" in request.POST and request.POST.get("url").strip():
             url = request.POST.get("url").strip()
-
+            
 #        elif "url" in request.POST:
 #            url = request.POST.get("url").strip()
             if not url:
                 return render_to_response("error.html",
                                           {"error": "You specified an invalid URL!"},
                                           context_instance=RequestContext(request))
+
+            if re.match(r"https?\:\/\/[^\x2f]+$",url,re.I):
+                url = url + "/"
 
             for entry in task_machines:
                 task_id = db.add_url(url=url,
@@ -140,6 +143,7 @@ def index(request):
                                               context_instance=RequestContext(request))
                 else:
                     base_dir = tempfile.mkdtemp(prefix='cuckoovtdl',dir=settings.VTDL_PATH)
+                    os.chmod(base_dir, 0774)
                     hashlist = []
                     if "," in vtdl:
                         hashlist=vtdl.split(",")
@@ -156,6 +160,7 @@ def index(request):
                             f = open(filename, 'wb')
                             f.write(r.content)
                             f.close()
+                            os.chmod(filename, 0664)
                             for entry in task_machines:
                                 task_id = db.add_path(file_path=filename,
                                           package=package,
