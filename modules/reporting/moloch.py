@@ -76,9 +76,8 @@ class Moloch(Report):
             self.machine_name = re.sub(r"[\W]","_",str(results["info"]["machine"]["name"]))
         else:
             self.machine_name = "Unknown"
-
-        if results["info"].has_key("options") and results["info"]["options"].has_key("gw"):
-            self.gateway = re.sub(r"[\W]","_",str(results["info"]["options"]["gw"]))
+        if results["info"].has_key("options") and results["info"]["options"].has_key("setgw"):
+            self.gateway = re.sub(r"[\W]","_",str(results["info"]["options"]["setgw"]))
         else:
             self.gateway = "Default"
         
