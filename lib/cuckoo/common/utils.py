@@ -1070,6 +1070,7 @@ def store_temp_file(filedata, filename, path=None):
 
     tmp_dir = tempfile.mkdtemp(prefix="upload_", dir=target_path)
     tmp_file_path = os.path.join(tmp_dir, filename)
+    os.chmod(tmp_dir,0755)
     with open(tmp_file_path, "wb") as tmp_file:
         # If filedata is file object, do chunked copy.
         if hasattr(filedata, "read"):
@@ -1079,7 +1080,7 @@ def store_temp_file(filedata, filename, path=None):
                 chunk = filedata.read(1024)
         else:
             tmp_file.write(filedata)
-
+    os.chmod(tmp_file_path,0664)       
     return tmp_file_path
 
 class TimeoutServer(xmlrpclib.ServerProxy):
