@@ -758,7 +758,8 @@ def remove(request, task_id):
         # Delete dups too.
         for analysis in anals:
             # Delete sample if not used.
-            if results_db.analysis.find({"target.file_id": ObjectId(analysis["target"]["file_id"])}).count() == 1:
+            
+            if analysis["target"]["category"] == "file" and results_db.analysis.find({"target.file_id": ObjectId(analysis["target"]["file_id"])}).count() == 1:
                 fs.delete(ObjectId(analysis["target"]["file_id"]))
             # Delete screenshots.
             for shot in analysis["shots"]:
@@ -785,7 +786,7 @@ def remove(request, task_id):
     # we may not have any suri entries
     if suri.count() == 1:
         for suricata in suri:
-            results.db.suricata.remove({"_id": ObjectId(suricata["_id"])})
+            results_db.suricata.remove({"_id": ObjectId(suricata["_id"])})
 
     # More analysis found with the same ID, like if process.py was run manually.
     else:
