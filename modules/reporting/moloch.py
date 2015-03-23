@@ -50,11 +50,10 @@ class Moloch(Report):
             if response.code == 200:
                 plain_answer = response.read()
                 json_data = json.loads(plain_answer)
-            time.sleep(1)
+            time.sleep(2)
         except Exception, e:
             log.warning("Moloch: Unable to update tags %s" % (e))
 
-        
     def run(self,results):
         """Run Moloch to import pcap
         @return: nothing 
@@ -151,14 +150,14 @@ class Moloch(Report):
                                elif proto == "TCP" or proto == "6":
                                    tmpdict['cproto'] = "tcp"
                                    tmpdict['nproto'] = 6
-                               tmpdict['expression'] = "ip==%s && ip==%s && port==%s && port==%s && tags==\"%s:%s\" && tags=\"%s\"" % (tmpdict['src_ip'],tmpdict['dest_ip'],tmpdict['src_port'],tmpdict['dest_port'],self.CUCKOO_INSTANCE_TAG,self.task_id,tmpdict['cproto'])
+                               tmpdict['expression'] = "ip==%s && ip==%s && port==%s && port==%s && tags==\"%s:%s\" && ip.protocol==%s" % (tmpdict['src_ip'],tmpdict['dest_ip'],tmpdict['src_port'],tmpdict['dest_port'],self.CUCKOO_INSTANCE_TAG,self.task_id,tmpdict['cproto'])
                                tmpdict['hash'] = tmpdict['nproto'] + struct.unpack('!L',socket.inet_aton(tmpdict['src_ip']))[0] + tmpdict['src_port'] + struct.unpack('!L',socket.inet_aton(tmpdict['dest_ip']))[0] + tmpdict['dest_port']
                            elif proto == "ICMP" or proto == "1":
                                tmpdict['src'] = m.group('src')
                                tmpdict['dst'] = m.group('dst')
                                tmpdict['cproto'] = "icmp"
                                tmpdict['nproto'] = 1
-                               tmpdict['expression'] = "ip==%s && ip==%s && tags==\"%s:%s\" && tags=\"%s\"" % (tmpdict['src_ip'],tmpdict['dest_ip'],self.CUCKOO_INSTANCE_TAG,self.task_id,tmpdict['cproto'])
+                               tmpdict['expression'] = "ip==%s && ip==%s && tags==\"%s:%s\" && ip.protocol==%s" % (tmpdict['src_ip'],tmpdict['dest_ip'],self.CUCKOO_INSTANCE_TAG,self.task_id,tmpdict['cproto'])
                                tmpdict['hash'] = tmpdict['nproto'] + struct.unpack('!L',socket.inet_aton(tmpdict['src_ip']))[0] + struct.unpack('!L',socket.inet_aton(tmpdict['dest_ip']))[0]
 
                            if self.alerthash.has_key(tmpdict['hash']):
