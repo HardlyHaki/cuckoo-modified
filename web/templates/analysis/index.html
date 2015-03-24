@@ -114,13 +114,6 @@
                            </td>
                         {% endif %}
                         <td>
-                            {% if analysis.mlist_cnt %}
-                                <span class="mono">{{analysis.mlist_cnt}}</span>
-                            {% else %}
-                                  <span class="mono">None</span>
-                            {% endif %}
-                        </td>
-                        <td>
                             {% if analysis.pcap_id %}
                                 <a href="{% url "analysis.views.file" "pcap" analysis.pcap_id %}" target="_blank"><span class="mono">PCAP</span></a>
                             {% else %}
