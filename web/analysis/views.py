@@ -507,14 +507,15 @@ def report(request, task_id):
         if settings.MOLOCH_BASE[-1] != "/":
             settings.MOLOCH_BASE = settings.MOLOCH_BASE + "/"
         report["moloch_url"] = settings.MOLOCH_BASE + "?date=-1&expression=tags" + quote("\x3d\x3d\x22%s\x3a%s\x22" % (settings.MOLOCH_NODE,task_id),safe='')
-        if suricata.has_key("http") and suricata["http_cnt"] > 0:
-            suricata=gen_moloch_from_suri_http(suricata)
-        if suricata.has_key("alerts") and suricata["alert_cnt"] > 0:
-            suricata=gen_moloch_from_suri_alerts(suricata)
-        if suricata.has_key("files") and suricata["file_cnt"] > 0:
-            suricata=gen_moloch_from_suri_file_info(suricata)
-        if suricata.has_key("tls") and suricata["tls_cnt"] > 0:
-            suricata=gen_moloch_from_suri_tls(suricata)
+        if isinstance(suricata, dict):
+            if suricata.has_key("http") and suricata["http_cnt"] > 0:
+                suricata=gen_moloch_from_suri_http(suricata)
+            if suricata.has_key("alerts") and suricata["alert_cnt"] > 0:
+                suricata=gen_moloch_from_suri_alerts(suricata)
+            if suricata.has_key("files") and suricata["file_cnt"] > 0:
+                suricata=gen_moloch_from_suri_file_info(suricata)
+            if suricata.has_key("tls") and suricata["tls_cnt"] > 0:
+                suricata=gen_moloch_from_suri_tls(suricata)
 
     # Creating dns information dicts by domain and ip.
     if "network" in report and "domains" in report["network"]:
