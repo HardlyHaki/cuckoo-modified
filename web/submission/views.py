@@ -218,7 +218,9 @@ def index(request):
                                   {"packages": sorted(packages),
                                    "machines": machines,
                                    "gateways": settings.GATEWAYS,
-                                   "vtdlenabled": settings.VTDL_ENABLED},
+                                   "vtdlenabled": settings.VTDL_ENABLED,
+                                   "torenabled": settings.TOR_ENABLED,
+                                   "zmonenabled": settings.DISPLAY_ZMON},
                                   context_instance=RequestContext(request))
 
 def status(request, task_id):
