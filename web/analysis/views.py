@@ -391,6 +391,13 @@ def gen_moloch_from_suri_tls(suricata):
                 e["moloch_src_port_url"] = settings.MOLOCH_BASE + "?date=-1&expression=port" + quote("\x3d\x3d%s\x26\x26tags\x3d\x3d\x22%s\x22" % (str(e["src_port"]),e["proto"].lower()),safe='')
     return suricata
 
+def gen_moloch_from_antivirus(virustotal):
+    if virustotal:
+        for key in virustotal["scans"]:
+            if virustotal["scans"][key]["result"]:
+                 virustotal["scans"][key]["moloch"] = settings.MOLOCH_BASE + "?date=-1&expression=" + quote("tags\x3d\x3d\x22VT:%s:%s\x22" % (key,virustotal["scans"][key]["result"]),safe='')
+    return virustotal 
+
 def surialert(request,task_id):
     suricata = results_db.suricata.find_one({"info.id": int(task_id)},{"alerts": 1,"alert_cnt": 1},sort=[("_id", pymongo.DESCENDING)])
     if not suricata:
@@ -453,6 +460,23 @@ def surifiles(request,task_id):
     return render_to_response("analysis/surifiles.html",
                               {"suricata": suricata},
                               context_instance=RequestContext(request))
+
+def antivirus(request,task_id):
+    rtmp = results_db.analysis.find_one({"info.id": int(task_id)},{"virustotal": 1,"info.category": 1},sort=[("_id", pymongo.DESCENDING)])
+    if not rtmp:
+        return render_to_response("error.html",
+                                  {"error": "The specified analysis does not exist"},
+                                  context_instance=RequestContext(request))
+    if settings.MOLOCH_ENABLED:
+        if settings.MOLOCH_BASE[-1] != "/":
+            settings.MOLOCH_BASE = settings.MOLOCH_BASE + "/"
+        if rtmp.has_key("virustotal"):
+            rtmp["virustotal"]=gen_moloch_from_antivirus(rtmp["virustotal"])
+
+    return render_to_response("analysis/antivirus.html",
+                              {"analysis": rtmp},
+                              context_instance=RequestContext(request))
+
 
 @csrf_exempt
 def search_behavior(request, task_id):
@@ -517,6 +541,9 @@ def report(request, task_id):
             if suricata.has_key("tls") and suricata["tls_cnt"] > 0:
                 suricata=gen_moloch_from_suri_tls(suricata)
 
+        if report.has_key("virustotal"):
+            report["virustotal"]=gen_moloch_from_antivirus(report["virustotal"])
+        
     # Creating dns information dicts by domain and ip.
     if "network" in report and "domains" in report["network"]:
         domainlookups = dict((i["domain"], i["ip"]) for i in report["network"]["domains"])

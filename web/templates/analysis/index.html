@@ -71,7 +71,7 @@
                         </td>
                         <td>
                             {% if analysis.virustotal_summary %}
-                                <span class="mono">{{analysis.virustotal_summary}}</span>
+                                <a href="{% url "analysis.views.antivirus" analysis.id %}" target="_blank"><span class="mono">{{analysis.virustotal_summary}}</span></a>
                             {% else %}
                                   <span class="mono">None</span>
                             {% endif %}
