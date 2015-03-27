@@ -5,7 +5,8 @@ import re
 import socket
 import sys
 import tarfile
-from datetime import datetime
+from bson import json_util
+import datetime
 from django.conf import settings
 from django.core.servers.basehttp import FileWrapper
 from django.http import HttpResponse, StreamingHttpResponse
@@ -17,6 +18,7 @@ from ratelimit.decorators import ratelimit
 from gridfs import GridFS
 from StringIO import StringIO
 from zipfile import ZipFile, ZIP_STORED
+from bson.objectid import ObjectId
 
 sys.path.append(settings.CUCKOO_PATH)
 
@@ -709,6 +711,16 @@ def tasks_iocs(request, task_id, detail=None):
     buf = {}
     if repconf.mongodb.get("enabled") and not buf:
         buf = results_db.analysis.find_one({"info.id": int(task_id)})
+        if "suricata" not in buf.keys():
+            buf["suricata"]={}
+            stmp = results_db.suricata.find_one({"info.id": int(task_id)},{"alerts": 1,"files": 1,"tls":1,},sort=[("_id", pymongo.DESCENDING)])
+            if "alerts" in stmp.keys():
+                buf["suricata"]["alerts"]=json.loads(json_util.dumps(stmp["alerts"]))
+            if "files" in stmp.keys():
+                buf["suricata"]["files"]=json.loads(json_util.dumps(stmp["files"]))
+            if "tls" in stmp.keys():
+                buf["suricata"]["tls"]=json.loads(json_util.dumps(stmp["tls"]))
+
     if repconf.jsondump.get("enabled") and not buf:
         jfile = os.path.join(CUCKOO_ROOT, "storage", "analyses",
                              "%s" % task_id, "reports", "report.json")
@@ -754,8 +766,12 @@ def tasks_iocs(request, task_id, detail=None):
         data["network"]["hosts"] = buf["network"]["hosts"]
     data["network"]["ids"] = {}
     if "suricata" in buf.keys():
-        data["network"]["ids"]["alerts"] = len(buf["suricata"]["alerts"])
-        data["network"]["ids"]["files"] = len(buf["suricata"]["files"])
+        if "alerts" in buf["suricata"].keys():
+            data["network"]["ids"]["alerts"] = buf["suricata"]["alerts"]
+        if "files" in buf["suricata"].keys(): 
+            data["network"]["ids"]["files"] = buf["suricata"]["files"]
+        if "tls" in buf["suricata"].keys():
+            data["network"]["ids"]["tls"] = buf["suricata"]["tls"]
     data["static"] = {}
     if "static" in buf.keys():
         pe = {}
@@ -928,6 +944,41 @@ def tasks_pcap(request, task_id):
         resp = {"error": True,
                 "error_value": "Screenshot does not exist"}
         return jsonize(resp, response=True)
+
+if apiconf.rollingsuri.get("enabled"):
+    raterps = apiconf.rollingsuri.get("rps")
+    raterpm = apiconf.rollingsuri.get("rpm")
+    rateblock = True
+
+@ratelimit(key="ip", rate=raterps, block=rateblock)
+@ratelimit(key="ip", rate=raterpm, block=rateblock)
+    
+def tasks_rollingsuri(request, window=60):
+    window = int(window)
+    if request.method != "GET":
+        resp = {"error": True, "error_value": "Method not allowed"}
+        return jsonize(resp, response=True)
+
+    if not apiconf.rollingsuri.get("enabled"):
+        resp = {"error": True,
+                "error_value": "Suri Rolling Alerts API is disabled"}
+        return jsonize(resp, response=True)
+    maxwindow = apiconf.rollingsuri.get("maxwindow")
+    if maxwindow > 0:
+        if window > maxwindow:
+            resp = {"error": True,
+                    "error_value": "The Window You Specified is greater than the configured maximum"}
+            return jsonize(resp, response=True)
+         
+    gen_time = datetime.datetime.now() - datetime.timedelta(minutes=window)
+    dummy_id = ObjectId.from_datetime(gen_time)
+    result = list(results_db.suricata.find({"alerts.alert": {"$exists": True}, "_id": {"$gte": dummy_id}},{"alerts":1}))
+    resp=[]
+    for e in result:
+        for alert in e["alerts"]:
+            resp.append(alert)
+
+    return jsonize(resp, response=True)
 
 if apiconf.taskprocmemory.get("enabled"):
     raterps = apiconf.taskprocmemory.get("rps")
