@@ -392,7 +392,7 @@ def gen_moloch_from_suri_tls(suricata):
     return suricata
 
 def gen_moloch_from_antivirus(virustotal):
-    if virustotal:
+    if virustotal and virustotal.has_key("scans"):
         for key in virustotal["scans"]:
             if virustotal["scans"][key]["result"]:
                  virustotal["scans"][key]["moloch"] = settings.MOLOCH_BASE + "?date=-1&expression=" + quote("tags\x3d\x3d\x22VT:%s:%s\x22" % (key,virustotal["scans"][key]["result"]),safe='')
