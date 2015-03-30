@@ -146,7 +146,7 @@ class Pcap:
             except:
                 log.error("Unable to GEOIP resolve %s" % ip)
         return cn
-            
+
     def _add_hosts(self, connection):
         """Add IPs to unique list.
         @param connection: connection data
@@ -168,7 +168,6 @@ class Pcap:
 
     def _enrich_hosts(self, unique_hosts):
         enriched_hosts=[]
-	print(unique_hosts.__repr__())
         while unique_hosts:
             ip = unique_hosts.pop()
             inaddrarpa = ""

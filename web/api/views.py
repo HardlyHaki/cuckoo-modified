@@ -458,7 +458,7 @@ def tasks_list(request, offset=None, limit=None):
     for row in db.list_tasks(limit=limit, details=True, offset=offset,
                              completed_after=completed_after,
                              status=status,
-                             order_by="tasks_completed_on asc"):
+                             order_by="tasks_completed_on desc"):
         resp["buf"] += 1
         task = row.to_dict()
         task["guest"] = {}
@@ -597,8 +597,12 @@ def tasks_status(request, task_id):
         return jsonize(resp, response=True)
 
     status = db.view_task(task_id).to_dict()["status"]
-    resp = {"error": False,
-            "data": status}
+    if not status:
+        resp = {"error": True,
+                "error_value": "Task does not exist"}
+    else:
+        resp = {"error": False,
+                "data": status}
     return jsonize(resp, response=True)
 
 if apiconf.taskreport.get("enabled"):
@@ -707,7 +711,6 @@ def tasks_iocs(request, task_id, detail=None):
     check = validate_task(task_id)
     if check["error"]:
         return jsonize(check, response=True)
-
     buf = {}
     if repconf.mongodb.get("enabled") and not buf:
         buf = results_db.analysis.find_one({"info.id": int(task_id)})
@@ -742,7 +745,6 @@ def tasks_iocs(request, task_id, detail=None):
         del sig["alert"]
         data["signatures"].append(sig)
     # Grab target file info
-    #print json.dumps(s["target"])
     if "target" in buf.keys():
         data["target"] = buf["target"]
         if data["target"]["category"] == "file":
@@ -803,61 +805,62 @@ def tasks_iocs(request, task_id, detail=None):
         data["static"]["pe"] = pe
         data["static"]["pdf"] = pdf
         data["static"]["office"] = office
-        data["files"] = {}
-        data["files"]["modified"] = []
-        data["files"]["deleted"] = []
-        data["registry"] = {}
-        data["registry"]["modified"] = []
-        data["registry"]["deleted"] = []
-        data["mutexes"] = []
-        if "behavior" in buf and "summary" in buf["behavior"]:
-            if "write_files" in buf["behavior"]["summary"]:
-                data["files"]["modified"] = buf["behavior"]["summary"]["write_files"]
-            if "delete_files" in buf["behavior"]["summary"]:
-                data["files"]["deleted"] = buf["behavior"]["summary"]["delete_files"]
-            if "write_keys" in buf["behavior"]["summary"]:
-                data["registry"]["modified"] = buf["behavior"]["summary"]["write_keys"]
-            if "delete_keys" in buf["behavior"]["summary"]:
-                data["registry"]["deleted"] = buf["behavior"]["summary"]["delete_keys"]
-            if "mutexes" in buf["behavior"]["summary"]:
-                data["mutexes"] = buf["behavior"]["summary"]["mutexes"]
-        if not detail:
-            resp = {"error": False, "data": data}
-            return jsonize(resp, response=True)
 
-        if "behavior" in buf and "summary" in buf["behavior"]:
-            if "read_files" in buf["behavior"]["summary"]:
-                data["files"]["read"] = buf["behavior"]["summary"]["read_files"]
-            if "read_keys" in buf["behavior"]["summary"]:
-                data["registry"]["read"] = buf["behavior"]["summary"]["read_keys"]
+    data["files"] = {}
+    data["files"]["modified"] = []
+    data["files"]["deleted"] = []
+    data["registry"] = {}
+    data["registry"]["modified"] = []
+    data["registry"]["deleted"] = []
+    data["mutexes"] = []
+    if "behavior" in buf and "summary" in buf["behavior"]:
+        if "write_files" in buf["behavior"]["summary"]:
+            data["files"]["modified"] = buf["behavior"]["summary"]["write_files"]
+        if "delete_files" in buf["behavior"]["summary"]:
+            data["files"]["deleted"] = buf["behavior"]["summary"]["delete_files"]
+        if "write_keys" in buf["behavior"]["summary"]:
+            data["registry"]["modified"] = buf["behavior"]["summary"]["write_keys"]
+        if "delete_keys" in buf["behavior"]["summary"]:
+            data["registry"]["deleted"] = buf["behavior"]["summary"]["delete_keys"]
+        if "mutexes" in buf["behavior"]["summary"]:
+            data["mutexes"] = buf["behavior"]["summary"]["mutexes"]
+    if not detail:
+        resp = {"error": False, "data": data}
+        return jsonize(resp, response=True)
 
-        if buf["network"] and "http" in buf["network"]:
-            data["network"]["http"] = {}
-            for req in buf["network"]["http"]:
-                if "host" in req:
-                    data["network"]["http"]["host"] = req["host"]
-                else:
-                    data["network"]["http"]["host"] = ""
-                if "data" in req and "\r\n" in req["data"]:
-                    data["network"]["http"]["data"] = req["data"].split("\r\n")[0]
-                else:
-                    data["network"]["http"]["data"] = ""
-                if "method" in req:
-                    data["network"]["http"]["method"] = req["method"]
-                else:
-                    data["network"]["http"]["method"] = ""
+    if "behavior" in buf and "summary" in buf["behavior"]:
+        if "read_files" in buf["behavior"]["summary"]:
+            data["files"]["read"] = buf["behavior"]["summary"]["read_files"]
+        if "read_keys" in buf["behavior"]["summary"]:
+            data["registry"]["read"] = buf["behavior"]["summary"]["read_keys"]
+
+    if buf["network"] and "http" in buf["network"]:
+        data["network"]["http"] = {}
+        for req in buf["network"]["http"]:
+            if "host" in req:
+                data["network"]["http"]["host"] = req["host"]
+            else:
+                data["network"]["http"]["host"] = ""
+            if "data" in req and "\r\n" in req["data"]:
+                data["network"]["http"]["data"] = req["data"].split("\r\n")[0]
+            else:
+                data["network"]["http"]["data"] = ""
+            if "method" in req:
+                data["network"]["http"]["method"] = req["method"]
+            else:
+                data["network"]["http"]["method"] = ""
                 if "user-agent" in req:
                     data["network"]["http"]["ua"] = req["user-agent"]
                 else:
                     data["network"]["http"]["ua"] = ""
 
-        if "strings" in buf.keys():
-            data["strings"] = buf["strings"]
-        else:
-            data["strings"] = ["No Strings"]
+    if "strings" in buf.keys():
+        data["strings"] = buf["strings"]
+    else:
+        data["strings"] = ["No Strings"]
 
-        resp = {"error": False, "data": data}
-        return jsonize(resp, response=True)
+    resp = {"error": False, "data": data}
+    return jsonize(resp, response=True)
 
 if apiconf.taskscreenshot.get("enabled"):
     raterps = apiconf.taskscreenshot.get("rps")
