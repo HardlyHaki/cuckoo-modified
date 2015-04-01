@@ -18,7 +18,7 @@ vtdl_cfg = Config("auxiliary").virustotaldl
 tor_cfg = Config("auxiliary").tor
 ie_martians_cfg = Config("auxiliary").iemartiansinwebui
 display_zmon_cfg = Config("auxiliary").displayzmoninwebui
-
+display_shrike_cfg = Config("auxiliary").displayshrikeinwebui
 # Checks if mongo reporting is enabled in Cuckoo.
 if not cfg.get("enabled"):
     raise Exception("Mongo reporting module is not enabled in cuckoo, aborting!")
@@ -39,6 +39,7 @@ VTDL_KEY = vtdl_cfg.get("dlkey",None)
 VTDL_PATH = vtdl_cfg.get("dlpath",None)
 TOR_ENABLED = tor_cfg.get("enabled",False)
 DISPLAY_ZMON = display_zmon_cfg.get("enabled",False)
+DISPLAY_SHRIKE = display_shrike_cfg.get("enabled",False)
 
 DEBUG = True
 TEMPLATE_DEBUG = DEBUG

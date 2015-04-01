@@ -108,6 +108,11 @@ class AnalysisInfo(Processing):
             custom=self.task["custom"],
             machine=self.task["machine"],
             package=self.task["package"],
+            shrike_url=self.task["shrike_url"],
+            shrike_refer=self.task["shrike_refer"],
+            shrike_msg=self.task["shrike_msg"],
+            shrike_sid=self.task["shrike_sid"],
+            parent_id=self.task["parent_id"],
             options=self.get_options(self.task["options"]),
             timeout=self.had_timeout()
         )

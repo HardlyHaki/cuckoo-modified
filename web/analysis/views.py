@@ -41,6 +41,11 @@ if settings.DISPLAY_IE_MARTIANS:
 else:
     global_settings["display_ie_martians"] = False 
 
+if settings.DISPLAY_SHRIKE:
+    global_settings["display_shrike"] = True
+else:
+    global_settings["display_shrike"] = False
+
 @require_safe
 def index(request, page=1):
     page = int(page)
@@ -90,7 +95,7 @@ def index(request, page=1):
             if db.view_errors(task.id):
                 new["errors"] = True
 
-            rtmp = results_db.analysis.find_one({"info.id": int(new["id"])},{"virustotal_summary": 1,"network.pcap_id":1, "info.custom":1},sort=[("_id", pymongo.DESCENDING)])
+            rtmp = results_db.analysis.find_one({"info.id": int(new["id"])},{"virustotal_summary": 1,"network.pcap_id":1, "info.custom":1, "info.shrike_msg":1},sort=[("_id", pymongo.DESCENDING)])
             stmp = results_db.suricata.find_one({"info.id": int(new["id"])},{"tls_cnt": 1, "alert_cnt": 1, "http_cnt": 1, "file_cnt": 1, "http_log_id": 1, "tls_log_id": 1, "alert_log_id": 1, "file_log_id": 1},sort=[("_id", pymongo.DESCENDING)])
             if rtmp:
                 if rtmp.has_key("virustotal_summary") and rtmp["virustotal_summary"]:
@@ -101,6 +106,9 @@ def index(request, page=1):
                     new["pcap_id"] = rtmp["network"]["pcap_id"]
                 if rtmp.has_key("info") and rtmp["info"].has_key("custom") and rtmp["info"]["custom"]:
                     new["custom"] = rtmp["info"]["custom"]
+                if settings.DISPLAY_SHRIKE and rtmp.has_key("info") and rtmp["info"].has_key("shrike_msg") and rtmp["info"]["shrike_msg"]:
+                    new["shrike_msg"] = rtmp["info"]["shrike_msg"]
+
             if settings.MOLOCH_ENABLED:
                 if settings.MOLOCH_BASE[-1] != "/":
                     settings.MOLOCH_BASE = settings.MOLOCH_BASE + "/"
@@ -138,7 +146,7 @@ def index(request, page=1):
             if db.view_errors(task.id):
                 new["errors"] = True
 
-            rtmp = results_db.analysis.find_one({"info.id": int(new["id"])},{"virustotal_summary": 1, "network.pcap_id":1, "info.custom":1, "signatures":1},sort=[("_id", pymongo.DESCENDING)])
+            rtmp = results_db.analysis.find_one({"info.id": int(new["id"])},{"virustotal_summary": 1, "network.pcap_id":1, "info.custom":1, "info.shrike_msg":1,"signatures":1},sort=[("_id", pymongo.DESCENDING)])
             stmp = results_db.suricata.find_one({"info.id": int(new["id"])},{"tls_cnt": 1, "alert_cnt": 1, "http_cnt": 1, "file_cnt": 1, "http_log_id": 1, "tls_log_id": 1, "alert_log_id": 1, "file_log_id": 1},sort=[("_id", pymongo.DESCENDING)])
             if rtmp:
                 if rtmp.has_key("virustotal_summary") and rtmp["virustotal_summary"]:
@@ -147,6 +155,8 @@ def index(request, page=1):
                     new["pcap_id"] = rtmp["network"]["pcap_id"]
                 if rtmp.has_key("info") and rtmp["info"].has_key("custom") and rtmp["info"]["custom"]:
                     new["custom"] = rtmp["info"]["custom"]
+                if settings.DISPLAY_SHRIKE and rtmp.has_key("info") and rtmp["info"].has_key("shrike_msg") and rtmp["info"]["shrike_msg"]:
+                    new["shrike_msg"] = rtmp["info"]["shrike_msg"]
                 if settings.DISPLAY_IE_MARTIANS and rtmp.has_key("signatures"):
                     for entry in rtmp["signatures"]:
                         if entry["name"] == "ie_martian_children":
@@ -414,6 +424,16 @@ def surialert(request,task_id):
     return render_to_response("analysis/surialert.html",
                               {"suricata": suricata},
                               context_instance=RequestContext(request))
+def shrike(request,task_id):
+    shrike = results_db.analysis.find_one({"info.id": int(task_id)},{"info.shrike_url": 1,"info.shrike_msg": 1,"info.shrike_sid":1, "info.shrike_refer":1},sort=[("_id", pymongo.DESCENDING)])
+    if not shrike:
+        return render_to_response("error.html",
+                                  {"error": "The specified analysis does not exist"},
+                                  context_instance=RequestContext(request))
+
+    return render_to_response("analysis/shrike.html",
+                              {"shrike": shrike},
+                              context_instance=RequestContext(request))
 
 def surihttp(request,task_id):
     suricata = results_db.suricata.find_one({"info.id": int(task_id)},{"http": 1, "http_cnt": 1},sort=[("_id", pymongo.DESCENDING)])
@@ -656,7 +676,7 @@ def search(request):
             elif term == "imphash":
                 records = results_db.analysis.find({"static.pe_imphash": value}).sort([["_id", -1]])
             elif term == "surisid":
-                records = results_db.suricata.find({"alerts.alert.signature_id": {"$regex" : value, "$options" : "-1"}}).sort([["_id", -1]])
+                records = results_db.suricata.find({"alerts.alert.signature_id": int(value)}).sort([["_id", -1]])
             elif term == "surimsg":
                 records = results_db.suricata.find({"alerts.alert.signature": {"$regex" : value, "$options" : "-1"}}).sort([["_id", -1]])
             elif term == "suriurl":
@@ -685,6 +705,14 @@ def search(request):
                 records = results_db.analysis.find({"info.machine.name": {"$regex": value, "$options": "-i"}}).sort([["_id", -1]])
             elif term == "machinelabel":
                 records = results_db.analysis.find({"info.machine.label": {"$regex": value, "$options": "-i"}}).sort([["_id", -1]])
+            elif term == "shrikemsg":
+                records = results_db.analysis.find({"info.shrike_msg": {"$regex" : value, "$options" : "-1"}}).sort([["_id", -1]])
+            elif term == "shrikeurl":
+                records = results_db.analysis.find({"info.shrike_url": {"$regex" : value, "$options" : "-1"}}).sort([["_id", -1]])
+            elif term == "shrikerefer":
+                records = results_db.analysis.find({"info.shrike_refer": {"$regex" : value, "$options" : "-1"}}).sort([["_id", -1]])
+            elif term == "shrikesid":
+                records = results_db.analysis.find({"info.shrike_sid": int(value)}).sort([["_id", -1]])
             else:
                 return render_to_response("analysis/search.html",
                                           {"analyses": None,
@@ -729,7 +757,7 @@ def search(request):
                         new["sample"] = sample.to_dict()
                 filename = os.path.basename(new["target"])
                 new.update({"filename": filename})
-            rtmp = results_db.analysis.find_one({"info.id": int(new["id"])},{"virustotal_summary": 1, "mlist_cnt": 1, "network.pcap_id":1,"info.custom":1},sort=[("_id", pymongo.DESCENDING)])
+            rtmp = results_db.analysis.find_one({"info.id": int(new["id"])},{"virustotal_summary": 1, "network.pcap_id":1, "info.custom":1, "info.shrike_msg":1,"signatures":1},sort=[("_id", pymongo.DESCENDING)])
             stmp = results_db.suricata.find_one({"info.id": int(new["id"])},{"tls_cnt": 1, "alert_cnt": 1, "http_cnt": 1, "file_cnt": 1, "http_log_id": 1, "tls_log_id": 1, "alert_log_id": 1, "file_log_id": 1},sort=[("_id", pymongo.DESCENDING)])
 
             if rtmp:
@@ -741,6 +769,12 @@ def search(request):
                     new["pcap_id"] = rtmp["network"]["pcap_id"]
                 if rtmp.has_key("info") and rtmp["info"].has_key("custom") and rtmp["info"]["custom"]:
                     new["custom"] = rtmp["info"]["custom"]
+                if settings.DISPLAY_SHRIKE and rtmp.has_key("info") and rtmp["info"].has_key("shrike_msg") and rtmp["info"]["shrike_msg"]:
+                    new["shrike_msg"] = rtmp["info"]["shrike_msg"]
+                if settings.DISPLAY_IE_MARTIANS and rtmp.has_key("signatures"):
+                    for entry in rtmp["signatures"]:
+                        if entry["name"] == "ie_martian_children":
+                            new["mlist_cnt"] = len(entry["data"])
             if settings.MOLOCH_ENABLED:
                 if settings.MOLOCH_BASE[-1] != "/":
                     settings.MOLOCH_BASE = settings.MOLOCH_BASE + "/"

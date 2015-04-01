@@ -154,6 +154,10 @@ def tasks_create_file(request):
         memory = bool(request.POST.get("memory", False))
         clock = request.POST.get("clock", None)
         enforce_timeout = bool(request.POST.get("enforce_timeout", False))
+        shrike_url = request.POST.get("shrike_url", None)
+        shrike_msg = request.POST.get("shrike_msg", None)
+        shrike_sid = request.POST.get("shrike_sid", None)
+        shrike_refer = request.POST.get("shrike_refer", None)
 
         task_ids = []
         task_machines = []
@@ -212,6 +216,10 @@ def tasks_create_file(request):
                                           memory=memory,
                                           enforce_timeout=enforce_timeout,
                                           clock=clock,
+                                          shrike_url=shrike_url,
+                                          shrike_msg=shrike_msg,
+                                          shrike_sid=shrike_sid,
+                                          shrike_refer=shrike_refer
                                           )
                     if task_id:
                         task_ids.append(task_id)
@@ -243,6 +251,10 @@ def tasks_create_file(request):
                                       memory=memory,
                                       enforce_timeout=enforce_timeout,
                                       clock=clock,
+                                      shrike_url=shrike_url,
+                                      shrike_msg=shrike_msg,
+                                      shrike_sid=shrike_sid,
+                                      shrike_refer=shrike_refer
                                       )
                 if task_id:
                     task_ids.append(task_id)
@@ -297,6 +309,10 @@ def tasks_create_url(request):
         memory = bool(request.POST.get("memory", False))
         clock = request.POST.get("clock", None)
         enforce_timeout = bool(request.POST.get("enforce_timeout", False))
+        shrike_url = request.POST.get("shrike_url", None)
+        shrike_msg = request.POST.get("shrike_msg", None)
+        shrike_sid = request.POST.get("shrike_sid", None)
+        shrike_refer = request.POST.get("shrike_refer", None)
 
         if not url:
             resp = {"error": True, "error_value": "URL value is empty"}
@@ -318,7 +334,11 @@ def tasks_create_url(request):
                              custom=custom,
                              memory=memory,
                              enforce_timeout=enforce_timeout,
-                             clock=clock
+                             clock=clock,
+                             shrike_url=shrike_url,
+                             shrike_msg=shrike_msg,
+                             shrike_sid=shrike_sid,
+                             shrike_refer=shrike_refer
                              )
         if task_id:
             resp["data"] = "Task ID {0} has been submitted".format(
@@ -425,7 +445,7 @@ if apiconf.tasklist.get("enabled"):
     rateblock = True
 @ratelimit(key="ip", rate=raterps, block=rateblock)
 @ratelimit(key="ip", rate=raterpm, block=rateblock)
-def tasks_list(request, offset=None, limit=None):
+def tasks_list(request, offset=None, limit=None, window=None):
     if request.method != "GET":
         resp = {"error": True, "error_value": "Method not allowed"}
         return jsonize(resp, response=True)
@@ -446,6 +466,15 @@ def tasks_list(request, offset=None, limit=None):
     completed_after = request.GET.get("completed_after")
     if completed_after:
         completed_after = fromtimestamp(int(completed_after))
+
+    if not completed_after and window:
+        maxwindow = apiconf.tasklist.get("maxwindow")
+        if maxwindow > 0:
+            if int(window) > maxwindow:
+                resp = {"error": True,
+                        "error_value": "The Window You Specified is greater than the configured maximum"}
+                return jsonize(resp, response=True)
+        completed_after = datetime.datetime.now() - datetime.timedelta(minutes=int(window))
 
     status = request.GET.get("status")
 

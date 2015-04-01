@@ -20,4 +20,5 @@ urlpatterns = patterns("",
     url(r"^search/$", "analysis.views.search"),
     url(r"^pending/$", "analysis.views.pending"),
     url(r"^(?P<task_id>\d+)/pcapstream/(?P<conntuple>[.,\w]+)/$", "analysis.views.pcapstream"),
+    url(r"^shrike/(?P<task_id>\d+)/$", "analysis.views.shrike"),
 )

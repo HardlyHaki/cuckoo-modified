@@ -43,6 +43,9 @@
                     {% endif %}
                     <th width="3%">PCAP</th>
                     <th width="5%">Custom</th>
+                    {% if global_settings.display_shrike %}
+                        <th width="5%">Shrike</th>
+                    {% endif %}
                     <th width="5%" style="text-align: right;">Status</th>
                 </tr>
                 </thead>
@@ -127,6 +130,19 @@
                                  <span class="mono">None</span>
                             {% endif %}
                         </td>
+                        {% if global_settings.display_shrike %}
+                        <td>
+                            {% if analysis.shrike_msg %}
+                                 {% if analysis.status == "reported" %}
+                                     <a href="{% url "analysis.views.shrike" analysis.id %}" target="_blank"><span class="mono">{{analysis.shrike_msg}}</span></a>
+                                 {% else %}
+                                     <span class="mono">{{analysis.shrike_msg}}</span>
+                                 {% endif %}
+                            {% else %}
+                                 <span class="mono">None</span>
+                            {% endif %}
+                        </td>
+                       {% endif %}
                         <td style="text-align: right;">
                             {% if analysis.status == "pending" %}
                                 <span class="text-muted">pending</span>
@@ -193,6 +209,9 @@
                     {% endif %}
                     <th width="5%">PCAP</th>
                     <th width="5%">Custom</th>
+                    {% if global_settings.display_shrike %}
+                        <th width="5%">Shrike</th>
+                    {% endif %}
                     <th width="5%" style="text-align: right;">Status</th>
                 </tr>
                 </thead>
@@ -282,6 +301,19 @@
                                  <span class="mono">None</span>
                             {% endif %}
                         </td>
+                        {% if global_settings.display_shrike %}
+                        <td>
+                            {% if analysis.shrike_msg %}
+                                 {% if analysis.status == "reported" %}
+                                     <a href="{% url "analysis.views.shrike" analysis.id %}" target="_blank"><span class="mono">{{analysis.shrike_msg}}</span></a>
+                                 {% else %}
+                                     <span class="mono">{{analysis.shrike_msg}}</span>
+                                 {% endif %}
+                            {% else %}
+                                 <span class="mono">None</span>
+                            {% endif %}
+                        </td>
+                       {% endif %}
                         <td>
                         <td style="text-align: right;">
                             {% if analysis.status == "pending" %}
