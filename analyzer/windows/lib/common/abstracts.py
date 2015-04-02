@@ -80,11 +80,11 @@ class Package(object):
         """
         dll = self.options.get("dll")
         free = self.options.get("free")
-        gw = self.options.get("setgw",None)
+        gw = self.options.get("setgw", None)
 
         u = Utils()
         if gw:
-           u.set_default_gw(gw)
+            u.set_default_gw(gw)
 
         suspended = True
         if free:

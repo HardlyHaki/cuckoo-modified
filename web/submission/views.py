@@ -4,9 +4,11 @@
 import re
 import os
 import sys
+
 import requests
 import tempfile
 import random
+
 from django.conf import settings
 from django.shortcuts import render_to_response
 from django.template import RequestContext
@@ -61,7 +63,8 @@ def index(request):
             if options:
                 options += ","
             options += "kernel_analysis=yes"
-        if gateway:
+
+        if gateway and gateway in settings.GATEWAYS:
             if "," in settings.GATEWAYS[gateway]:
                 tgateway = random.choice(settings.GATEWAYS[gateway].split(","))
                 ngateway = settings.GATEWAYS[tgateway]
@@ -70,6 +73,7 @@ def index(request):
             if options:
                 options += ","
             options += "setgw=%s" % (ngateway)
+
         db = Database()
         task_ids = []
         task_machines = []
@@ -136,44 +140,71 @@ def index(request):
                 if task_id:
                     task_ids.append(task_id)
         elif settings.VTDL_ENABLED and "vtdl" in request.POST:
-                vtdl = request.POST.get("vtdl").strip()
-                if settings.VTDL_KEY == None or settings.VTDL_PATH == None:
+            vtdl = request.POST.get("vtdl").strip()
+            if (not settings.VTDL_PRIV_KEY and not settings.VTDL_INTEL_KEY) or not settings.VTDL_PATH:
                     return render_to_response("error.html",
-                                              {"error": "You specified VirusTotal but must edit the file and specify your VTDL_KEY variable and VTDL_PATH base directory"},
+                                              {"error": "You specified VirusTotal but must edit the file and specify your VTDL_PRIV_KEY or VTDL_INTEL_KEY variable and VTDL_PATH base directory"},
                                               context_instance=RequestContext(request))
+            else:
+                base_dir = tempfile.mkdtemp(prefix='cuckoovtdl',dir=settings.VTDL_PATH)
+                hashlist = []
+                if "," in vtdl:
+                    hashlist=vtdl.split(",")
                 else:
-                    base_dir = tempfile.mkdtemp(prefix='cuckoovtdl',dir=settings.VTDL_PATH)
-                    os.chmod(base_dir, 0774)
-                    hashlist = []
-                    if "," in vtdl:
-                        hashlist=vtdl.split(",")
+                    hashlist.append(vtdl)
+                onesuccess = False
+
+                for h in hashlist:
+                    filename = base_dir + "/" + h
+                    if settings.VTDL_PRIV_KEY:
+                        url = 'https://www.virustotal.com/vtapi/v2/file/download'
+                        params = {'apikey': settings.VTDL_PRIV_KEY, 'hash': h}
                     else:
-                        hashlist.append(vtdl)
+                        url = 'https://www.virustotal.com/intelligence/download/'
+                        params = {'apikey': settings.VTDL_INTEL_KEY, 'hash': h}
 
-                    for h in hashlist:
-                        filename = base_dir + "/" + h
-                        url = 'http://www.virustotal.com/vtapi/v2/file/download'
-                        params = {'apikey': settings.VTDL_KEY, 'hash': h}
-
-                        r = requests.get(url, params=params)
-                        if r.status_code == 200:
+                    try:
+                        r = requests.get(url, params=params, verify=True)
+                    except requests.exceptions.RequestException as e:
+                        return render_to_response("error.html",
+                                              {"error": "Error completing connection to VirusTotal: {0}".format(e)},
+                                              context_instance=RequestContext(request))
+                    if r.status_code == 200:
+                        try:
                             f = open(filename, 'wb')
                             f.write(r.content)
                             f.close()
-                            os.chmod(filename, 0664)
-                            for entry in task_machines:
-                                task_id = db.add_path(file_path=filename,
-                                          package=package,
-                                          timeout=timeout,
-                                          options=options,
-                                          priority=priority,
-                                          machine=entry,
-                                          custom=custom,
-                                          memory=memory,
-                                          enforce_timeout=enforce_timeout,
-                                          tags=tags)
-                                if task_id:
-                                    task_ids.append(task_id)
+                        except:
+                            return render_to_response("error.html",
+                                              {"error": "Error writing VirusTotal download file to temporary path"},
+                                              context_instance=RequestContext(request))
+
+                        onesuccess = True
+
+                        for entry in task_machines:
+                            task_id = db.add_path(file_path=filename,
+                                        package=package,
+                                        timeout=timeout,
+                                        options=options,
+                                        priority=priority,
+                                        machine=entry,
+                                        custom=custom,
+                                        memory=memory,
+                                        enforce_timeout=enforce_timeout,
+                                        tags=tags)
+                            if task_id:
+                                task_ids.append(task_id)
+                    elif r.status_code == 403:
+                        return render_to_response("error.html",
+                                                  {"error": "API key provided is not a valid VirusTotal key or is not authorized for VirusTotal downloads"},
+                                                  context_instance=RequestContext(request))
+
+
+                if not onesuccess:
+                    return render_to_response("error.html",
+                                              {"error": "Provided hash not found on VirusTotal"},
+                                              context_instance=RequestContext(request))
+
 
         tasks_count = len(task_ids)
         if tasks_count > 0:
