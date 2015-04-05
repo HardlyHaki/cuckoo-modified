@@ -122,23 +122,6 @@ $(document).ready( function() {
                                 </select>
                             </div>
                             <div class="form-group">
-                                <label for="form_machine">Machine</label>
-                                <select class="form-control" id="form_machine" name="machine">
-                                {% for id,label in machines %}
-                                    <option value="{{id}}">{{label}}</option>
-                                {% endfor %}
-                                </select>
-                            </div>
-                            <div class="form-group">
-                                <label for="form_gateway">Gateway</label>
-                                <select class="form-control" id="form_gateway" name="gateway">
-                                <option value="" active>Default</option>
-                                {% for k,v in gateways.items %}
-                                    <option value="{{k}}">{{k}}</option>
-                                {% endfor %}
-                                </select>
-                            </div>
-                            <div class="form-group">
                                 <label for="form_timeout">Timeout</label>
                                 <input type="text" class="form-control" id="form_timeout" name="timeout" />
                             </div>
