@@ -274,6 +274,7 @@ def tasks_create_file(request):
                     for tid in task_ids:
                         resp["url"].append("{0}/submit/status/{1}".format(
                                            apiconf.api.get("url"), tid))
+            return jsonize(resp, response=True)
         else:
             resp = {"error": True,
                     "error_value": "Error adding task to database"}
@@ -346,6 +347,7 @@ def tasks_create_url(request):
             if apiconf.urlcreate.get("status"):
                 resp["url"] = ["{0}/submit/status/{1}".format(
                               apiconf.api.get("url"), task_id)]
+            return jsonize(resp, response=True)
     else:
         resp = {"error": True, "error_value": "Method not allowed"}
         return jsonize(resp, response=True)
