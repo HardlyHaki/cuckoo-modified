@@ -347,10 +347,13 @@ def tasks_create_url(request):
             if apiconf.urlcreate.get("status"):
                 resp["url"] = ["{0}/submit/status/{1}".format(
                               apiconf.api.get("url"), task_id)]
-            return jsonize(resp, response=True)
+        else:
+            resp = {"error": True,
+                    "error_value": "Error adding task to database"}
     else:
         resp = {"error": True, "error_value": "Method not allowed"}
-        return jsonize(resp, response=True)
+
+    return jsonize(resp, response=True)
 
 # Return Sample inforation.
 if apiconf.fileview.get("enabled"):
@@ -377,18 +380,21 @@ def files_view(request, md5=None, sha256=None, sample_id=None):
                 resp = {"error": True,
                         "error_value": "File View by MD5 is Disabled"}
                 return jsonize(resp, response=True)
+
             sample = db.find_sample(md5=md5)
         if sha256:
             if not apiconf.fileview.get("sha256"):
                 resp = {"error": True,
                         "error_value": "File View by MD5 is Disabled"}
                 return jsonize(resp, response=True)
+
             sample = db.find_sample(sha256=sha256)
         if sample_id:
             if not apiconf.fileview.get("id"):
                 resp = {"error": True,
                         "error_value": "File View by MD5 is Disabled"}
                 return jsonize(resp, response=True)
+
             sample = db.view_sample(sample_id)
         if sample:
             resp["data"] = sample.to_dict()
@@ -413,6 +419,7 @@ def tasks_search(request, md5=None, sha256=None):
         resp = {"error": True,
                 "error_value": "Task Search API is Disabled"}
         return jsonize(resp, response=True)
+
     if md5 or sha256:
         resp["error"] = False
         if md5:
@@ -420,12 +427,14 @@ def tasks_search(request, md5=None, sha256=None):
                 resp = {"error": True,
                         "error_value": "Task Search by MD5 is Disabled"}
                 return jsonize(resp, response=True)
+
             sample = db.find_sample(md5=md5)
         if sha256:
             if not apiconf.tasksearch.get("sha256"):
                 resp = {"error": True,
                         "error_value": "Task Search by SHA256 is Disabled"}
                 return jsonize(resp, response=True)
+
             sample = db.find_sample(sha256=sha256)
         if sample:
             sid = sample.to_dict()["id"]
@@ -742,6 +751,7 @@ def tasks_iocs(request, task_id, detail=None):
     check = validate_task(task_id)
     if check["error"]:
         return jsonize(check, response=True)
+
     buf = {}
     if repconf.mongodb.get("enabled") and not buf:
         buf = results_db.analysis.find_one({"info.id": int(task_id)})
@@ -764,6 +774,7 @@ def tasks_iocs(request, task_id, detail=None):
         resp = {"error": True,
                 "error_value": "Unable to retrieve report to parse for IOC's"}
         return jsonize(resp, response=True)
+
     data = {}
     data["info"] = buf["info"]
     del data["info"]["custom"]
@@ -933,12 +944,14 @@ def tasks_screenshot(request, task_id, screenshot="all"):
         resp["Content-Length"] = str(len(s.getvalue()))
         resp["Content-Disposition"] = "attachment; filename=" + fname
         return resp
+
     else:
         shot = srcdir + "/" + screenshot.zfill(4) + ".jpg"
         if os.path.exists(shot):
             with open(shot, "rb") as picture:
                 data = picture.read()
             return HttpResponse(data, content_type="image/jpeg")
+
         else:
             resp = {"error": True,
                     "error_value": "Screenshot does not exist"}
@@ -974,6 +987,7 @@ def tasks_pcap(request, task_id):
         resp["Content-Length"] = str(len(data))
         resp["Content-Disposition"] = "attachment; filename=" + fname
         return resp
+
     else:
         resp = {"error": True,
                 "error_value": "Screenshot does not exist"}
@@ -1033,6 +1047,7 @@ def tasks_procmemory(request, task_id, pid="all"):
     check = validate_task(task_id)
     if check["error"]:
         return jsonize(check, response=True)
+
     # Check if any process memory dumps exist
     srcdir = os.path.join(CUCKOO_ROOT, "storage", "analyses", "%s" % task_id,
                           "memory")
@@ -1171,6 +1186,7 @@ def get_files(request, stype, value):
         resp["Content-Length"] = os.path.getsize(sample)
         resp["Content-Disposition"] = "attachment; filename=" + fname
         return resp
+
     else:
         resp = {"error": True,
                 "error_value": "Sample %s was not found" % file_hash}

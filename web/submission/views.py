@@ -101,18 +101,9 @@ def index(request):
                                        sample.name)
                 os.chmod(path, 0664) 
                 for entry in task_machines:
-                    task_id = db.add_path(file_path=path,
-                                          package=package,
-                                          timeout=timeout,
-                                          options=options,
-                                          priority=priority,
-                                          machine=entry,
-                                          custom=custom,
-                                          memory=memory,
-                                          enforce_timeout=enforce_timeout,
-                                          tags=tags)
-                    if task_id:
-                        task_ids.append(task_id)
+                    task_ids_new = db.demux_sample_and_add_to_db(file_path=path, package=package, timeout=timeout, options=options, priority=priority,
+                                                                 machine=entry, custom=custom, memory=memory, enforce_timeout=enforce_timeout, tags=tags)
+                    task_ids.extend(task_ids_new)
         elif "url" in request.POST and request.POST.get("url").strip():
             url = request.POST.get("url").strip()
             
@@ -182,18 +173,9 @@ def index(request):
                         onesuccess = True
 
                         for entry in task_machines:
-                            task_id = db.add_path(file_path=filename,
-                                        package=package,
-                                        timeout=timeout,
-                                        options=options,
-                                        priority=priority,
-                                        machine=entry,
-                                        custom=custom,
-                                        memory=memory,
-                                        enforce_timeout=enforce_timeout,
-                                        tags=tags)
-                            if task_id:
-                                task_ids.append(task_id)
+                            task_ids_new = db.demux_sample_and_add_to_db(file_path=filename, package=package, timeout=timeout, options=options, priority=priority,
+                                                                         machine=entry, custom=custom, memory=memory, enforce_timeout=enforce_timeout, tags=tags)
+                            task_ids.extend(task_ids_new)
                     elif r.status_code == 403:
                         return render_to_response("error.html",
                                                   {"error": "API key provided is not a valid VirusTotal key or is not authorized for VirusTotal downloads"},

@@ -94,7 +94,9 @@ def tasks_create_file():
         shrike_refer=shrike_refer
     )
 
-    response["task_id"] = task_id
+    task_ids = db.demux_sample_and_add_to_db(file_path=temp_file_path, package=package, timeout=timeout, options=options, priority=priority,
+                                          machine=machine, platform=platform, custom=custom, memory=memory, enforce_timeout=enforce_timeout, tags=tags, clock=clock)
+    response["task_ids"] = task_ids
     return jsonize(response)
 
 @route("/tasks/create/url", method="POST")
