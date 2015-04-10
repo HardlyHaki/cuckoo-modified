@@ -5,6 +5,7 @@ import re
 import socket
 import sys
 import tarfile
+import random
 from bson import json_util
 import datetime
 from django.conf import settings
@@ -21,7 +22,6 @@ from zipfile import ZipFile, ZIP_STORED
 from bson.objectid import ObjectId
 
 sys.path.append(settings.CUCKOO_PATH)
-
 from lib.cuckoo.common.config import Config
 from lib.cuckoo.common.constants import CUCKOO_ROOT, CUCKOO_VERSION
 from lib.cuckoo.common.utils import store_temp_file, delete_folder
@@ -158,6 +158,7 @@ def tasks_create_file(request):
         shrike_msg = request.POST.get("shrike_msg", None)
         shrike_sid = request.POST.get("shrike_sid", None)
         shrike_refer = request.POST.get("shrike_refer", None)
+        gateway = request.POST.get("gateway",None)
 
         task_ids = []
         task_machines = []
@@ -189,6 +190,17 @@ def tasks_create_file(request):
             max_file_size = 5 * 1048576
         else:
             max_file_size = int(max_file_size) * 1048576
+
+        if gateway and gateway in settings.GATEWAYS:
+            if "," in settings.GATEWAYS[gateway]:
+                tgateway = random.choice(settings.GATEWAYS[gateway].split(","))
+                ngateway = settings.GATEWAYS[tgateway]
+            else:
+                ngateway = settings.GATEWAYS[gateway]
+            if options:
+                options += ","
+            options += "setgw=%s" % (ngateway)
+
         # Check if we are allowing multiple file submissions
         multifile = apiconf.filecreate.get("multifile")
         if multifile:
@@ -314,6 +326,7 @@ def tasks_create_url(request):
         shrike_msg = request.POST.get("shrike_msg", None)
         shrike_sid = request.POST.get("shrike_sid", None)
         shrike_refer = request.POST.get("shrike_refer", None)
+        gateway = request.POST.get("gateway",None)
 
         if not url:
             resp = {"error": True, "error_value": "URL value is empty"}
@@ -323,6 +336,16 @@ def tasks_create_url(request):
             resp = {"error": True,
                     "error_value": "machine=all not supported for URL analysis API"}
             return jsonize(resp, response=True)
+
+        if gateway and gateway in settings.GATEWAYS:
+            if "," in settings.GATEWAYS[gateway]:
+                tgateway = random.choice(settings.GATEWAYS[gateway].split(","))
+                ngateway = settings.GATEWAYS[tgateway]
+            else:
+                ngateway = settings.GATEWAYS[gateway]
+            if options:
+                options += ","
+            options += "setgw=%s" % (ngateway)
 
         task_id = db.add_url(url=url,
                              package=package,
