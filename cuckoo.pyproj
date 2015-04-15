@@ -148,7 +148,9 @@
     <Compile Include="lib\__init__.py" />
     <Compile Include="modules\auxiliary\tor.py" />
     <Compile Include="modules\processing\suricata.py" />
+    <Compile Include="modules\processing\cif.py" />
     <Compile Include="modules\reporting\moloch.py" />
+    <Compile Include="modules\reporting\reportpdf.py" />
     <Compile Include="modules\reporting\resubmitexe.py">
       <SubType>Code</SubType>
     </Compile>
@@ -329,6 +331,7 @@
     <Content Include="web\templates\analysis\behavior\_api_call.html" />
     <Content Include="web\templates\analysis\behavior\_search.html" />
     <Content Include="web\templates\analysis\behavior\_search_results.html" />
+    <Content Include="web\templates\analysis\reports\index.html" />
     <Content Include="web\templates\analysis\network\_suricata_alerts.html" />
     <Content Include="web\templates\analysis\network\_suricata_files.html" />
     <Content Include="web\templates\analysis\network\_suricata_http.html" />
@@ -488,6 +491,7 @@
     <Folder Include="web\templates\analysis\admin" />
     <Folder Include="web\templates\analysis\behavior" />
     <Folder Include="web\templates\analysis\dropped" />
+    <Folder Include="web\templates\analysis\reports\" />
     <Folder Include="web\templates\analysis\memory" />
     <Folder Include="web\templates\analysis\network" />
     <Folder Include="web\templates\analysis\overview" />

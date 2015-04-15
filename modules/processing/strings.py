@@ -3,7 +3,10 @@
 # See the file 'docs/LICENSE' for copying permission.
 
 import os.path
-import re
+try:
+    import re2 as re
+except ImportError:
+    import re
 
 from lib.cuckoo.common.abstracts import Processing
 from lib.cuckoo.common.exceptions import CuckooProcessingError
@@ -26,7 +29,7 @@ class Strings(Processing):
                 data = open(self.file_path, "r").read()
             except (IOError, OSError) as e:
                 raise CuckooProcessingError("Error opening file %s" % e)
-            strings = re.findall("[\x1f-\x7e]{6,}", data)
-            strings += [str(ws.decode("utf-16le")) for ws in re.findall("(?:[\x1f-\x7e][\x00]){6,}", data)]
+            strings = re.findall("[\x20-\x7e]{6,}", data)
+            strings += [str(ws.decode("utf-16le")) for ws in re.findall("(?:[\x20-\x7e][\x00]){6,}", data)]
 
         return strings

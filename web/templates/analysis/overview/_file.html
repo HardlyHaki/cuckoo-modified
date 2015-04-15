@@ -1,9 +1,9 @@
 <section id="file">
     <h4>File Details</h4>
     <div class="panel panel-default">
-        <table class="table table-striped">
+        <table class="table table-striped" style="table-layout: fixed;">
             <tr>
-                <th style="border-top: 0;">File Name</th>
+                <th style="border-top: 0; width: 10%;">File Name</th>
                 <td style="border-top: 0;">{{analysis.target.file.name}}</td>
             </tr>
             <tr>
@@ -28,7 +28,7 @@
             </tr>
             <tr>
                 <th>SHA512</th>
-                <td>{{analysis.target.file.sha512}}</td>
+                <td style="word-wrap: break-word;">{{analysis.target.file.sha512}}</td>
             </tr>
             <tr>
                 <th>CRC32</th>
@@ -36,7 +36,7 @@
             </tr>
             <tr>
                 <th>Ssdeep</th>
-                <td>{{analysis.target.file.ssdeep}}</td>
+                <td style="word-wrap: break-word;">{{analysis.target.file.ssdeep}}</td>
             </tr>
             <tr>
                 <th>ClamAV</th>
