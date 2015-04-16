@@ -150,6 +150,7 @@
     <Compile Include="modules\processing\suricata.py" />
     <Compile Include="modules\processing\cif.py" />
     <Compile Include="modules\reporting\moloch.py" />
+    <Compile Include="modules\reporting\reporthtmlsummary.py" />
     <Compile Include="modules\reporting\reportpdf.py" />
     <Compile Include="modules\reporting\resubmitexe.py">
       <SubType>Code</SubType>
@@ -172,6 +173,7 @@
     <Compile Include="utils\db_migration\versions\from_1_2_to_1_2-accuvant-add_statistics.py">
       <SubType>Code</SubType>
     </Compile>
+    <Compile Include="utils\dist.py" />
     <Compile Include="utils\health_statistics.py" />
     <Compile Include="utils\process.py" />
     <Compile Include="utils\stats.py" />

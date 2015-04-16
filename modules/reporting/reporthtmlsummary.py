@@ -18,8 +18,8 @@ try:
 except ImportError:
     HAVE_JINJA2 = False
 
-class ReportHTML(Report):
-    """Stores report in HTML format."""
+class ReportHTMLSummary(Report):
+    """Stores summary report in HTML format."""
 
     def run(self, results):
         """Writes report.
@@ -27,7 +27,7 @@ class ReportHTML(Report):
         @raise CuckooReportError: if fails to write report.
         """
         if not HAVE_JINJA2:
-            raise CuckooReportError("Failed to generate HTML report: "
+            raise CuckooReportError("Failed to generate summary HTML report: "
                                     "Jinja2 Python library is not installed")
 
         shots_path = os.path.join(self.analysis_path, "shots")
@@ -61,14 +61,14 @@ class ReportHTML(Report):
 
         try:
             tpl = env.get_template("report.html")
-            html = tpl.render({"results": results, "summary_report" : False})
+            html = tpl.render({"results": results, "summary_report" : True })
         except Exception as e:
-            raise CuckooReportError("Failed to generate HTML report: %s" % e)
+            raise CuckooReportError("Failed to generate summary HTML report: %s" % e)
         
         try:
-            with codecs.open(os.path.join(self.reports_path, "report.html"), "w", encoding="utf-8") as report:
+            with codecs.open(os.path.join(self.reports_path, "summary-report.html"), "w", encoding="utf-8") as report:
                 report.write(html)
         except (TypeError, IOError) as e:
-            raise CuckooReportError("Failed to write HTML report: %s" % e)
+            raise CuckooReportError("Failed to write summary HTML report: %s" % e)
 
         return True
