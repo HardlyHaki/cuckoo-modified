@@ -74,6 +74,7 @@ class Process:
         self.thread_id = thread_id
         self.h_thread = h_thread
         self.suspended = suspended
+        self.system_info = SYSTEM_INFO()
 
     def __del__(self):
         """Close open handles."""
@@ -84,7 +85,6 @@ class Process:
 
     def get_system_info(self):
         """Get system information."""
-        self.system_info = SYSTEM_INFO()
         KERNEL32.GetSystemInfo(byref(self.system_info))
 
     def open(self):
