@@ -1050,6 +1050,50 @@ def tasks_rollingsuri(request, window=60):
             resp.append(alert)
 
     return jsonize(resp, response=True)
+if apiconf.rollingshrike.get("enabled"):
+    raterps = apiconf.rollingshrike.get("rps")
+    raterpm = apiconf.rollingshrike.get("rpm")
+    rateblock = True
+
+@ratelimit(key="ip", rate=raterps, block=rateblock)
+@ratelimit(key="ip", rate=raterpm, block=rateblock)
+
+def tasks_rollingshrike(request, window=60, msgfilter=None):
+    window = int(window)
+    if request.method != "GET":
+        resp = {"error": True, "error_value": "Method not allowed"}
+        return jsonize(resp, response=True)
+
+    if not apiconf.rollingshrike.get("enabled"):
+        resp = {"error": True,
+                "error_value": "Rolling Shrike API is disabled"}
+        return jsonize(resp, response=True)
+    maxwindow = apiconf.rollingshrike.get("maxwindow")
+    if maxwindow > 0:
+        if window > maxwindow:
+            resp = {"error": True,
+                    "error_value": "The Window You Specified is greater than the configured maximum"}
+            return jsonize(resp, response=True)
+
+    gen_time = datetime.datetime.now() - datetime.timedelta(minutes=window)
+    dummy_id = ObjectId.from_datetime(gen_time)
+    if msgfilter: 
+       result = results_db.analysis.find({"info.shrike_url": {"$exists": True, "$ne":None }, "_id": {"$gte": dummy_id},"info.shrike_msg": {"$regex" : msgfilter, "$options" : "-1"}},{"info.id":1,"info.shrike_msg":1,"info.shrike_sid":1,"info.shrike_url":1,"info.shrike_refer":1},sort=[("_id", pymongo.DESCENDING)])
+    else:   
+        result = results_db.analysis.find({"info.shrike_url": {"$exists": True, "$ne":None }, "_id": {"$gte": dummy_id}},{"info.id":1,"info.shrike_msg":1,"info.shrike_sid":1,"info.shrike_url":1,"info.shrike_refer":1},sort=[("_id", pymongo.DESCENDING)])
+
+    resp=[]
+    for e in result:
+        tmp = {}
+        tmp["id"] = e["info"]["id"]
+        tmp["shrike_msg"] = e["info"]["shrike_msg"]
+        tmp["shrike_sid"] = e["info"]["shrike_sid"]
+        tmp["shrike_url"] = e["info"]["shrike_url"]
+        if e["info"].has_key("shrike_refer") and e["info"]["shrike_refer"]:
+            tmp["shrike_refer"]=e["info"]["shrike_refer"]
+        resp.append(tmp)
+
+    return jsonize(resp, response=True)
 
 if apiconf.taskprocmemory.get("enabled"):
     raterps = apiconf.taskprocmemory.get("rps")
