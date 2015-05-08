@@ -64,7 +64,6 @@ def index(request):
 
         # Get the amount of tasks that actually completed.
         finished = len(tasks)
-        print "started:%s completed:%s finished:%s" % (started,completed,finished)
         
         hourly = 60 * 60 * finished / (completed - started)
 
