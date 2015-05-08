@@ -57,14 +57,15 @@ def index(request):
 
     if tasks:
         # Get the time when the first task started.
-        started = min(timestamp(task.started_on) for task in tasks)
+        started = min(timestamp(task.started_on) for task in tasks if task.started_on)
 
         # Get the time when the last task completed.
-        completed = max(timestamp(task.completed_on) for task in tasks)
+        completed = max(timestamp(task.completed_on) for task in tasks if task.completed_on)
 
         # Get the amount of tasks that actually completed.
         finished = len(tasks)
-
+        print "started:%s completed:%s finished:%s" % (started,completed,finished)
+        
         hourly = 60 * 60 * finished / (completed - started)
 
         report["estimate_hour"] = int(hourly)
