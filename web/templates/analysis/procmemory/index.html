@@ -28,8 +28,22 @@
                 </tr>
                 {% if proc.procmem_id %}
                     <tr>
-                        <th></th>
-                        <td><a class="btn btn-primary btn-small" href="{% url "analysis.views.file" "memdump" proc.procmem_id %}">Download</a></td>
+                        <th>Proc MemDump</th>
+                        {% if proc.zipdump %}
+                            <td><a class="btn btn-primary btn-small" href="{% url "analysis.views.file" "zip" proc.procmem_id %}">Download</a></td>
+                        {% else %}
+                            <td><a class="btn btn-primary btn-small" href="{% url "analysis.views.file" "memdump" proc.procmem_id %}">Download</a></td>
+                        {% endif %}
+                    </tr>
+                {% endif %}
+                {% if proc.procmem_strings_id %}
+                    <tr>
+                        <th>Proc MemDump Strings</th>
+                        {% if proc.zipstrings %}
+                            <td><a class="btn btn-primary btn-small" href="{% url "analysis.views.file" "zip" proc.procmem_strings_id %}">Download</a></td>
+                        {% else %}
+                            <td><a class="btn btn-primary btn-small" href="{% url "analysis.views.file" "memdump" proc.procmem_strings_id %}">Download</a></td>
+                        {% endif %}
                     </tr>
                 {% endif %}
             </table>

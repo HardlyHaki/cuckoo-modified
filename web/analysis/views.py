@@ -26,6 +26,9 @@ from lib.cuckoo.common.config import Config
 from lib.cuckoo.common.constants import CUCKOO_ROOT
 import modules.processing.network as network
 
+from django.http import StreamingHttpResponse
+from django.core.servers.basehttp import FileWrapper
+
 results_db = pymongo.MongoClient(settings.MONGO_HOST, settings.MONGO_PORT)[settings.MONGO_DB]
 fs = GridFS(results_db)
 
@@ -654,16 +657,44 @@ def filereport(request, task_id, category):
 def full_memory_dump_file(request, analysis_number):
     file_path = os.path.join(CUCKOO_ROOT, "storage", "analyses", str(analysis_number), "memory.dmp")
     if os.path.exists(file_path):
+        filename = os.path.basename(file_path)
+    else:
+        file_path = os.path.join(CUCKOO_ROOT, "storage", "analyses", str(analysis_number), "memory.dmp.zip")
+        if os.path.exists(file_path):
+            filename = os.path.basename(file_path)
+    if filename:
         content_type = "application/octet-stream"
-        response = HttpResponse(open(file_path, "rb").read(), content_type=content_type)
-        response["Content-Disposition"] = "attachment; filename=memory.dmp"
-
+        chunk_size = 8192
+        response = StreamingHttpResponse(FileWrapper(open(file_path), chunk_size),
+                                   content_type=content_type)
+        response['Content-Length'] = os.path.getsize(file_path)
+        response['Content-Disposition'] = "attachment; filename=%s" % filename
         return response
     else:
         return render_to_response("error.html",
                                   {"error": "File not found"},
                                   context_instance=RequestContext(request))
-
+@require_safe
+def full_memory_dump_strings(request, analysis_number):
+    file_path = os.path.join(CUCKOO_ROOT, "storage", "analyses", str(analysis_number), "memory.dmp.strings")
+    if os.path.exists(file_path):
+        filename = os.path.basename(file_path)
+    else:
+        file_path = os.path.join(CUCKOO_ROOT, "storage", "analyses", str(analysis_number), "memory.dmp.strings.zip")
+        if os.path.exists(file_path):
+            filename = os.path.basename(file_path)
+    if filename:
+        content_type = "application/octet-stream"
+        chunk_size = 8192
+        response = StreamingHttpResponse(FileWrapper(open(file_path), chunk_size),
+                                   content_type=content_type)
+        response['Content-Length'] = os.path.getsize(file_path)
+        response['Content-Disposition'] = "attachment; filename=%s" % filename
+        return response
+    else:
+        return render_to_response("error.html",
+                                  {"error": "File not found"},
+                                  context_instance=RequestContext(request))
 
 def search(request):
     if "search" in request.POST:
