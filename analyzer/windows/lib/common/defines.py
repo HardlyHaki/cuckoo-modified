@@ -11,8 +11,8 @@ USER32   = windll.user32
 
 BYTE      = c_ubyte
 WORD      = c_ushort
-DWORD     = c_ulong
-LONG      = c_ulong
+DWORD     = c_uint
+LONG      = c_int
 LPBYTE    = POINTER(c_ubyte)
 LPTSTR    = POINTER(c_char)
 HANDLE    = c_void_p
@@ -21,7 +21,6 @@ LPVOID    = c_void_p
 UINT_PTR  = c_ulong
 SIZE_T    = c_ulong
 HMODULE   = c_void_p
-NULL      = c_int(0)
 
 DEBUG_PROCESS             = 0x00000001
 CREATE_NEW_CONSOLE        = 0x00000010
@@ -57,6 +56,7 @@ PAGE_NOCACHE              = 0x00000200
 PAGE_WRITECOMBINE         = 0x00000400
 
 PIPE_ACCESS_DUPLEX        = 0x00000003
+PIPE_ACCESS_INBOUND       = 0x00000001
 PIPE_TYPE_MESSAGE         = 0x00000004
 PIPE_READMODE_MESSAGE     = 0x00000002
 PIPE_WAIT                 = 0x00000000

@@ -52,6 +52,10 @@
                         <td>Open files matching the pattern</td>
                     </tr>
                     <tr>
+                        <td><code>command:</code></td>
+                        <td>Executed commands matching the pattern</td>
+                    </tr>
+                    <tr>
                         <td><code>key:</code></td>
                         <td>Open registry keys matching the pattern</td>
                     </tr>
@@ -141,6 +145,10 @@
                         <td>Label of the Target Machine</td>
                     </tr>
                     <tr>
+                        <td><code>custom:</code></td>
+                        <td>Custom data</td>
+                    </tr>
+                    <tr>
                         <td><code>shrikemsg:</code></td>
                         <td>Shrike Suri Alert MSG</td>
                     </tr>
@@ -216,15 +224,16 @@
                             {% if analysis.status == "reported" %}
                                 <a href="{% url "analysis.views.report" analysis.id %}">
                                 {% if analysis.category == "url" %}
-                                    <span class="mono">{{analysis.target}}</span></a>
+                                    <span class="mono">{{analysis.target}}</span>
                                 {% else %}
-                                    <span class="mono">{{analysis.sample.md5}}</span></a>
-                                {% endif %}</a>
+                                    <span class="mono">{{analysis.sample.md5}}</span>
+                                {% endif %}
+                                </a>
                             {% else %}
                                 {% if analysis.category == "url" %}
-                                    <span class="mono">{{analysis.target}}</span></a>
+                                    <span class="mono">{{analysis.target}}</span>
                                 {% else %}
-                                    <span class="mono">{{analysis.sample.md5}}</span></a>
+                                    <span class="mono">{{analysis.sample.md5}}</span>
                                 {% endif %}
                             {% endif %}
                         </td>

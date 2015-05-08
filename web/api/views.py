@@ -270,15 +270,18 @@ def tasks_create_file(request):
                                       )
                 if task_id:
                     task_ids.append(task_id)
+                    
         if len(task_ids) > 0:
+            resp["task_ids"] = task_ids
             callback = apiconf.filecreate.get("status")
             if len(task_ids) == 1:
                 resp["data"] = "Task ID {0} has been submitted".format(
                                str(task_ids[0]))
                 if callback:
                     resp["url"] = ["{0}/submit/status/{1}/".format(
-                                  apiconf.filecreate.get("url"), task_ids[0])]
+                                  apiconf.api.get("url"), task_ids[0])]
             else:
+                resp["task_ids"] = task_ids
                 resp["data"] = "Task IDs {0} have been submitted".format(
                                ", ".join(str(x) for x in task_ids))
                 if callback:
@@ -365,6 +368,7 @@ def tasks_create_url(request):
                              shrike_refer=shrike_refer
                              )
         if task_id:
+            resp["task_ids"] = [task_id,]
             resp["data"] = "Task ID {0} has been submitted".format(
                            str(task_id))
             if apiconf.urlcreate.get("status"):
@@ -590,7 +594,7 @@ def tasks_reschedule(request, task_id):
         resp = {"error": True, "error_value": "Method not allowed"}
         return jsonize(resp, response=True)
 
-    if not apiconf.tasksreschedule.get("enabled"):
+    if not apiconf.taskresched.get("enabled"):
         resp = {"error": True,
                 "error_value": "Task Reschedule API is Disabled"}
         return jsonize(resp, response=True)

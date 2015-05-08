@@ -9,8 +9,13 @@ import time
 import sys
 import socket
 import json
-import re
 import shutil
+
+try:
+    import re2 as re
+except ImportError:
+    import re
+
 from lib.cuckoo.common.constants import CUCKOO_ROOT
 from lib.cuckoo.common.abstracts import Processing
 from lib.cuckoo.common.objects import File
@@ -85,7 +90,19 @@ class Suricata(Processing):
             return suricata["alerts"]
         if not os.path.exists(self.pcap_path):
             log.warning("Unable to Run Suricata: Pcap file %s Does Not Exist" % (self.pcap_path))
-            return suricata["alerts"]            
+            return suricata["alerts"]
+
+        # Add to this if you wish to ignore any SIDs for the suricata alert logs
+        # Useful for ignoring SIDs without disabling them. Ex: surpress an alert for
+        # a SID which is a dependant of another. (Bad TCP data for HTTP(S) alert)
+        sid_blacklist = [
+                        2200074,
+                        2210021,
+                        2210012,
+                        2210025,
+                        2210029,
+                        2210045,
+        ]
         if SURICATA_RUNMODE == "socket": 
             if SURICATA_SOCKET_PYLIB != None:
                 sys.path.append(SURICATA_SOCKET_PYLIB)
