@@ -881,7 +881,7 @@ class Database(object):
             return machines
         except SQLAlchemyError as e:
             log.debug("Database error getting available machines: {0}".format(e))
-            return 0
+            return []
         finally:
             session.close()
 

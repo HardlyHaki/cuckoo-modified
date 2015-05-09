@@ -23,6 +23,8 @@ RESOLUTION = {
     "y": USER32.GetSystemMetrics(1)
 }
 
+INITIAL_HWNDS = []
+
 def foreach_child(hwnd, lparam):
     # List of buttons labels to click.
     buttons = [
@@ -57,22 +59,22 @@ def foreach_child(hwnd, lparam):
         length = USER32.SendMessageW(hwnd, WM_GETTEXTLENGTH, 0, 0)
         text = create_unicode_buffer(length + 1)
         USER32.SendMessageW(hwnd, WM_GETTEXT, length + 1, text)
-
+        textval = text.value.replace('&','')
         # Check if the button is set as "clickable" and click it.
         for button in buttons:
-            if button in text.value.lower():
+            if button in textval.lower():
+                dontclickb = False
                 for btn in dontclick:
-                    if btn in text.value.lower():
-                        return False
-                log.info("Found button \"%s\", clicking it" % text.value)
-                USER32.SetForegroundWindow(hwnd)
-                KERNEL32.Sleep(1000)
-                USER32.SendMessageW(hwnd, BM_CLICK, 0, 0)
-        # Don't search for childs (USER32.EnumChildWindows).
-        return False
-    else:
-        # Recursively search for childs (USER32.EnumChildWindows).
-        return True
+                    if btn in textval.lower():
+                        dontclickb = True
+                if not dontclickb:
+                    log.info("Found button \"%s\", clicking it" % text.value)
+                    USER32.SetForegroundWindow(hwnd)
+                    KERNEL32.Sleep(1000)
+                    USER32.SendMessageW(hwnd, BM_CLICK, 0, 0)
+                    # only stop searching when we click a button
+                    return False
+    return True
 
 
 # Callback procedure invoked for every enumerated window.
@@ -81,6 +83,12 @@ def foreach_window(hwnd, lparam):
     # for buttons.
     if USER32.IsWindowVisible(hwnd):
         USER32.EnumChildWindows(hwnd, EnumChildProc(foreach_child), 0)
+    return True
+
+def getwindowlist(hwnd, lparam):
+    global INITIAL_HWNDS
+    if USER32.IsWindowVisible(hwnd):
+        INITIAL_HWNDS.append(hwnd)
     return True
 
 def move_mouse():
@@ -127,6 +135,7 @@ class Human(Auxiliary, Thread):
 
     def run(self):
         seconds = 0
+        randoff = random.randint(0, 10)
         nohuman = self.options.get("nohuman")
         if nohuman:
             return True
@@ -143,12 +152,26 @@ class Human(Auxiliary, Thread):
             file_name.endswith((".ppt", ".pptx", ".pps", ".ppsx", ".pptm", ".potm", ".potx", ".ppsm")):
             officedoc = True
 
+        USER32.EnumWindows(EnumWindowsProc(getwindowlist), 0)
+
         while self.do_run:
             if officedoc and seconds == 30:
                 USER32.EnumWindows(EnumWindowsProc(get_office_window), 0)
 
-            click_mouse()
-            move_mouse()
+            # only move the mouse 50% of the time, as malware can choose to act on an "idle" system just as it can on an "active" system
+            if random.randint(0, 3) > 1:
+                click_mouse()
+                move_mouse()
+
+            if (seconds % (15 + randoff)) == 0:
+                curwind = USER32.GetForegroundWindow()
+                other_hwnds = INITIAL_HWNDS[:]
+                try:
+                    other_hands.remove(USER32.GetForegroundWindow())
+                except:
+                    pass
+                USER32.SetForegroundWindow(other_hwnds[random.randint(0, len(other_hwnds)-1)])
+
             USER32.EnumWindows(EnumWindowsProc(foreach_window), 0)
             KERNEL32.Sleep(1000)
             seconds += 1

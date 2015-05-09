@@ -3,7 +3,12 @@
 # See the file 'docs/LICENSE' for copying permission.
 
 import sys
-import re
+
+try:
+    import re2 as re
+except ImportError:
+    import re
+
 import os
 import json
 
@@ -628,6 +633,32 @@ def file(request, category, object_id):
                                   context_instance=RequestContext(request))
 
 @require_safe
+def procdump(request, object_id, task_id, process_id, start, end):
+    analysis = results_db.analysis.find_one({"info.id": int(task_id)}, sort=[("_id", pymongo.DESCENDING)])
+
+    file_item = fs.get(ObjectId(object_id))
+    file_name = "{0}_{1:x}.dmp".format(process_id, int(start, 16))
+
+    if file_item and analysis and "procmemory" in analysis:
+        for proc in analysis["procmemory"]:
+            if proc["pid"] == int(process_id):
+                data = ""
+                for memmap in proc["address_space"]:
+                    for chunk in memmap["chunks"]:
+                        if int(chunk["start"], 16) >= int(start, 16) and int(chunk["end"], 16) <= int(end, 16):
+                            file_item.seek(chunk["offset"])
+                            data += file_item.read(int(chunk["size"], 16))
+                if len(data):
+                    content_type = "application/octet-stream"
+                    response = HttpResponse(data, content_type=content_type)
+                    response["Content-Disposition"] = "attachment; filename={0}".format(file_name)
+                    return response
+
+    return render_to_response("error.html",
+                                  {"error": "File not found"},
+                                  context_instance=RequestContext(request))
+
+@require_safe
 def filereport(request, task_id, category):
     formats = {
         "json": "report.json",
@@ -730,6 +761,8 @@ def search(request):
                 records = results_db.analysis.find({"target.file.crc32": value}).sort([["_id", -1]])
             elif term == "file":
                 records = results_db.analysis.find({"behavior.summary.files": {"$regex": value, "$options": "-i"}}).sort([["_id", -1]])
+            elif term == "command":
+                records = results_db.analysis.find({"behavior.summary.executed_commands": {"$regex": value, "$options": "-i"}}).sort([["_id", -1]])
             elif term == "key":
                 records = results_db.analysis.find({"behavior.summary.keys": {"$regex": value, "$options": "-i"}}).sort([["_id", -1]])
             elif term == "mutex":
@@ -776,6 +809,8 @@ def search(request):
                 records = results_db.analysis.find({"info.machine.name": {"$regex": value, "$options": "-i"}}).sort([["_id", -1]])
             elif term == "machinelabel":
                 records = results_db.analysis.find({"info.machine.label": {"$regex": value, "$options": "-i"}}).sort([["_id", -1]])
+            elif term == "custom":
+                records = results_db.analysis.find({"info.custom": {"$regex": value, "$options": "-i"}}).sort([["_id", -1]])
             elif term == "shrikemsg":
                 records = results_db.analysis.find({"info.shrike_msg": {"$regex" : value, "$options" : "-1"}}).sort([["_id", -1]])
             elif term == "shrikeurl":
@@ -900,9 +935,9 @@ def remove(request, task_id):
         # Delete dups too.
         for analysis in analyses:
             # Delete sample if not used.
-            
-            if analysis["target"]["category"] == "file" and results_db.analysis.find({"target.file_id": ObjectId(analysis["target"]["file_id"])}).count() == 1:
-                fs.delete(ObjectId(analysis["target"]["file_id"]))
+            if "file_id" in analysis["target"]:
+                if results_db.analysis.find({"target.file_id": ObjectId(analysis["target"]["file_id"])}).count() == 1:
+                    fs.delete(ObjectId(analysis["target"]["file_id"]))
             # Delete screenshots.
             for shot in analysis["shots"]:
                 if results_db.analysis.find({"shots": ObjectId(shot)}).count() == 1:
