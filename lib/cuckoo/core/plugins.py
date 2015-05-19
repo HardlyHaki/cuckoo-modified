@@ -10,7 +10,7 @@ import logging
 from collections import defaultdict
 from distutils.version import StrictVersion
 
-from lib.cuckoo.common.abstracts import Auxiliary, Machinery, Processing
+from lib.cuckoo.common.abstracts import Auxiliary, Machinery, LibVirtMachinery, Processing
 from lib.cuckoo.common.abstracts import Report, Signature, Feed
 from lib.cuckoo.common.config import Config
 from lib.cuckoo.common.constants import CUCKOO_ROOT, CUCKOO_VERSION
@@ -52,7 +52,7 @@ def load_plugins(module):
         if inspect.isclass(value):
             if issubclass(value, Auxiliary) and value is not Auxiliary:
                 register_plugin("auxiliary", value)
-            elif issubclass(value, Machinery) and value is not Machinery:
+            elif issubclass(value, Machinery) and value is not Machinery and value is not LibVirtMachinery:
                 register_plugin("machinery", value)
             elif issubclass(value, Processing) and value is not Processing:
                 register_plugin("processing", value)
@@ -478,6 +478,17 @@ class RunSignatures(object):
 
         # Sort the matched signatures by their severity level.
         matched.sort(key=lambda key: key["severity"])
+
+        # Tweak later as needed
+        malscore = 0.0
+        for match in matched:
+            if match["severity"] == 1:
+                malscore += match["weight"] * 0.5 * (match["confidence"] / 100.0)
+            else:
+                malscore += match["weight"] * (match["severity"] - 1) * (match["confidence"] / 100.0)
+        if malscore > 10.0:
+            malscore = 10.0
+        self.results["malscore"] = malscore
 
         # Doing signature statistics
         alert = 0

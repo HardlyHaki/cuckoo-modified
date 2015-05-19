@@ -276,4 +276,4 @@ class MongoDB(Report):
 
         # Store the report and retrieve its object id.
         self.db.analysis.save(report)
-        self.conn.disconnect()
+        self.conn.close()
