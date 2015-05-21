@@ -243,6 +243,9 @@
                     {% if config.moloch %}
                         <th width="5%">Moloch</th>
                     {% endif %}
+                    {% if config.display_ie_martians %}
+                        <th width="5%">Martians</th>
+                    {% endif %}
                     <th width="3%">PCAP</th>
                     <th width="5%">MalScore</th>
                     <th width="5%">Custom</th>
@@ -321,6 +324,15 @@
                                    <span class="mono">None</span>
                                 {% endif %}
                            </td>
+                        {% endif %}
+                        {% if config.display_ie_martians %}
+                        <td>
+                            {% if analysis.mlist_cnt %}
+                                <span class="mono">{{analysis.mlist_cnt}}</span>
+                            {% else %}
+                                  <span class="mono">None</span>
+                            {% endif %}
+                        </td>
                         {% endif %}
                         <td>
                             {% if analysis.pcap_id %}
