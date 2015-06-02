@@ -42,6 +42,9 @@ TOR_ENABLED = tor_cfg.get("enabled",False)
 DISPLAY_ZMON = display_zmon_cfg.get("enabled",False)
 DISPLAY_SHRIKE = display_shrike_cfg.get("enabled",False)
 
+# To disable comment support, change the below to False
+COMMENTS = True
+
 DEBUG = True
 TEMPLATE_DEBUG = DEBUG
 

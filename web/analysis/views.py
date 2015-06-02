@@ -9,13 +9,14 @@ try:
 except ImportError:
     import re
 
+import datetime
 import os
 import json
 
 from django.conf import settings
 from django.template import RequestContext
 from django.http import HttpResponse
-from django.shortcuts import render_to_response
+from django.shortcuts import redirect, render_to_response
 from django.views.decorators.http import require_safe
 from django.views.decorators.csrf import csrf_exempt
 
@@ -611,12 +612,42 @@ def report(request, task_id):
         domainlookups = dict()
         iplookups = dict()
 
+    similar = []
+    if enabledconf["malheur"]:
+        malheur_file = os.path.join(CUCKOO_ROOT, "storage", "malheur", "malheur.txt")
+        classes = dict()
+        ourclassname = None
+        try:
+            with open(malheur_file, "r") as malfile:
+                for line in malfile:
+                    if line[0] == '#':
+                            continue
+                    parts = line.strip().split(' ')
+                    classname = parts[1]
+                    if classname != "rejected":
+                        if classname not in classes:
+                            classes[classname] = []
+                        addval = dict()
+                        addval["id"] = parts[0][:-4]
+                        addval["proto"] = parts[2][:-4]
+                        addval["distance"] = parts[3]
+                        if addval["id"] == task_id:
+                            ourclassname = classname
+                        else:
+                            classes[classname].append(addval)
+            if ourclassname:
+                similar = classes[ourclassname]
+        except:
+            pass
+
     return render_to_response("analysis/report.html",
                              {"analysis": report,
                               "domainlookups": domainlookups,
                               "iplookups": iplookups,
-                              "config": enabledconf,
-                              "suricata": suricata},
+                              "suricata": suricata,
+                              "similar": similar,
+                              "settings": settings,
+                              "config": enabledconf},
                              context_instance=RequestContext(request))
 @require_safe
 def file(request, category, object_id):
@@ -781,6 +812,8 @@ def search(request):
                 records = results_db.analysis.find({"behavior.summary.files": {"$regex": value, "$options": "-i"}}).sort([["_id", -1]])
             elif term == "command":
                 records = results_db.analysis.find({"behavior.summary.executed_commands": {"$regex": value, "$options": "-i"}}).sort([["_id", -1]])
+            elif term == "resolvedapi":
+                records = results_db.analysis.find({"behavior.summary.resolved_apis": {"$regex": value, "$options": "-i"}}).sort([["_id", -1]])
             elif term == "key":
                 records = results_db.analysis.find({"behavior.summary.keys": {"$regex": value, "$options": "-i"}}).sort([["_id", -1]])
             elif term == "mutex":
@@ -927,6 +960,7 @@ def search(request):
             analyses.append(new)
         return render_to_response("analysis/search.html",
                                   {"analyses": analyses,
+                                   "config": enabledconf,
                                    "term": request.POST["search"],
                                    "config": enabledconf,
                                    "error": None},
@@ -1043,3 +1077,37 @@ def pcapstream(request, task_id, conntuple):
 
     packets = list(network.packets_for_stream(fobj, offset))
     return HttpResponse(json.dumps(packets), content_type="application/json")
+
+def comments(request, task_id):
+    if request.method == "POST" and settings.COMMENTS:
+        comment = request.POST.get("commentbox", "")
+        if not comment:
+            return render_to_response("error.html",
+                                      {"error": "No comment provided."},
+                                      context_instance=RequestContext(request))
+
+        report = results_db.analysis.find_one({"info.id": int(task_id)}, sort=[("_id", pymongo.DESCENDING)])
+        if "comments" in report["info"]:
+            curcomments = report["info"]["comments"]
+        else:
+            curcomments = list()
+        buf = dict()
+        buf["Timestamp"] = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        escape_map = {
+            '&' : "&amp;",
+            '\"' : "&quot;",
+            '\'' : "&qpos;",
+            '<' : "&lt;",
+            '>' : "&gt;",
+            '\n' : "<br />",
+            }
+        buf["Data"] = "".join(escape_map.get(thechar, thechar) for thechar in comment)
+        curcomments.insert(0, buf)
+        results_db.analysis.update({"info.id": int(task_id)},{"$set":{"info.comments":curcomments}}, upsert=False, multi=True)
+        return redirect('analysis.views.report', task_id=task_id)
+
+    else:
+        return render_to_response("error.html",
+                                  {"error": "Invalid Method"},
+                                  context_instance=RequestContext(request))
+

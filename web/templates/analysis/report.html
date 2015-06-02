@@ -1,5 +1,22 @@
 {% extends "base.html" %}
 {% block content %}
+<script>
+$(function() {
+  //Apply only when we reload the same page
+  if (document.referrer === document.URL){
+    //for bootstrap 3 use 'shown.bs.tab' instead of 'shown' in the next line
+    $('a[data-toggle="tab"]').on('click', function (e) {
+      localStorage.setItem('lastAnalysisTab', $(e.target).attr('href'));
+    });
+
+    var lastAnalysisTab = localStorage.getItem('lastAnalysisTab');
+
+    if (lastAnalysisTab) {
+        $('a[href="'+lastAnalysisTab+'"]').click();
+    }
+  }
+});
+</script>
 <div class="row">
     <div class="col-md-6"><p style="margin-bottom: 10px;"><img src="{{ STATIC_URL }}graphic/cuckoo.png" /></p></div>
     <div class="col-md-6" style="text-align: right;"><a class="btn btn-primary" href="{% url "compare.views.left" analysis.info.id %}">Compare this analysis to...</a></div>
@@ -12,7 +29,9 @@
     <li><a href="#dropped" data-toggle="tab">Dropped Files</a></li>
     {% if analysis.procmemory %}<li><a href="#procmemory" data-toggle="tab">Process Memory</a></li>{% endif %}
     {% if analysis.memory %}<li><a href="#memory" data-toggle="tab">Memory Analysis</a></li>{% endif %}
+    {% if config.malheur %}<li><a href="#similar" data-toggle="tab">Similar</a></li>{% endif %}
     <li><a href="#reports" data-toggle="tab">Reports</a></li>
+    {% if settings.COMMENTS %}<li><a href="#comments" data-toggle="tab">Comments</a></li>{% endif %}
     <li><a href="#admin" data-toggle="tab">Admin</a></li>
 </ul>
 <div class="tab-content">
@@ -45,9 +64,19 @@
         {% include "analysis/memory/index.html" %}
     </div>
     {% endif %}
+    {% if config.malheur %}
+    <div class="tab-pane fade" id="similar">
+        {% include "analysis/similar/index.html" %}
+    </div>
+    {% endif %}
     <div class="tab-pane fade" id="reports">
         {% include "analysis/reports/index.html" %}
     </div>
+    {% if settings.COMMENTS %}
+    <div class="tab-pane fade" id="comments">
+        {% include "analysis/comments/index.html" %}
+    </div>
+    {% endif %}
     <div class="tab-pane fade" id="admin">
         {% include "analysis/admin/index.html" %}
     </div>

@@ -56,6 +56,10 @@
                         <td>Executed commands matching the pattern</td>
                     </tr>
                     <tr>
+                        <td><code>resolvedapi:</code></td>
+                        <td>APIs resolved at runtime matching the pattern</td>
+                    </tr>
+                    <tr>
                         <td><code>key:</code></td>
                         <td>Open registry keys matching the pattern</td>
                     </tr>
@@ -238,6 +242,7 @@
                                 {% endif %}
                             {% endif %}
                         </td>
+                        {% if config.moloch %}
                         <td>
                             {% if analysis.virustotal_summary %}
                                 <a href="{% url "analysis.views.antivirus" analysis.id %}" target="_blank"><span class="mono">{{analysis.virustotal_summary}}</span></a>
@@ -245,6 +250,8 @@
                                 <span class="mono">None</span>
                             {% endif %}
                         </td>
+                        {% endif %}
+                        {% if config.suricata %}
                         <td>
                             {% if analysis.suri_alert_cnt %}
                                 <a href="{% url "analysis.views.surialert" analysis.id %}" target="_blank"><span class="mono">Suri_Alert:{{analysis.suri_alert_cnt}}</span></a>
@@ -259,6 +266,8 @@
                                 <span class="mono">None</span>
                             {% endif %}
                         </td>
+                        {% endif %}
+                        {% if config.virustotal %}
                         <td>
                             {% if analysis.suri_tls_cnt %}
                                 <a href="{% url "analysis.views.suritls" analysis.id %}" target="_blank"><span class="mono">Suri_TLS:{{analysis.suri_tls_cnt}}</span></a>

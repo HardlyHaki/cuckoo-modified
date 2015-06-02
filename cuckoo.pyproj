@@ -155,7 +155,7 @@
     <Compile Include="modules\auxiliary\tor.py" />
     <Compile Include="modules\feeds\bad_ssl_certs.py" />
     <Compile Include="modules\feeds\__init__.py" />
-    <Compile Include="modules\processing\malheur.py" />
+    <Compile Include="modules\reporting\malheur.py" />
     <Compile Include="modules\processing\suricata.py" />
     <Compile Include="modules\processing\cif.py" />
     <Compile Include="modules\reporting\moloch.py" />
@@ -343,6 +343,8 @@
     <Content Include="web\templates\analysis\behavior\_api_call.html" />
     <Content Include="web\templates\analysis\behavior\_search.html" />
     <Content Include="web\templates\analysis\behavior\_search_results.html" />
+    <Content Include="web\templates\analysis\comments\index.html" />
+    <Content Include="web\templates\analysis\similar\index.html" />
     <Content Include="web\templates\analysis\network\_cif.html" />
     <Content Include="web\templates\analysis\reports\index.html" />
     <Content Include="web\templates\analysis\network\_suricata_alerts.html" />
@@ -506,7 +508,9 @@
     <Folder Include="web\templates\analysis" />
     <Folder Include="web\templates\analysis\admin" />
     <Folder Include="web\templates\analysis\behavior" />
+    <Folder Include="web\templates\analysis\comments\" />
     <Folder Include="web\templates\analysis\dropped" />
+    <Folder Include="web\templates\analysis\similar\" />
     <Folder Include="web\templates\analysis\reports\" />
     <Folder Include="web\templates\analysis\memory" />
     <Folder Include="web\templates\analysis\network" />
