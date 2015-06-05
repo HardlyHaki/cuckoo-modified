@@ -870,6 +870,8 @@ def search(request):
                 records = results_db.analysis.find({"info.shrike_refer": {"$regex" : value, "$options" : "-1"}}).sort([["_id", -1]])
             elif term == "shrikesid":
                 records = results_db.analysis.find({"info.shrike_sid": int(value)}).sort([["_id", -1]])
+            elif term == "comment":
+                records = results_db.analysis.find({"info.comments.Data": {"$regex": value, "$options": "-i"}}).sort([["_id", -1]])
             else:
                 return render_to_response("analysis/search.html",
                                           {"analyses": None,

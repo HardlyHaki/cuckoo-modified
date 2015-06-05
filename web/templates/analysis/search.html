@@ -168,6 +168,10 @@
                         <td><code>shrikerefer:</code></td>
                         <td>Shrike Referer</td>
                     </tr>
+                    <tr>
+                        <td><code>comment:</code></td>
+                        <td>Search for Analysis Comments</td>
+                    </tr>
                 </tbody>
             </table>
         </div>
@@ -267,7 +271,6 @@
                             {% endif %}
                         </td>
                         {% endif %}
-                        {% if config.virustotal %}
                         <td>
                             {% if analysis.suri_tls_cnt %}
                                 <a href="{% url "analysis.views.suritls" analysis.id %}" target="_blank"><span class="mono">Suri_TLS:{{analysis.suri_tls_cnt}}</span></a>
