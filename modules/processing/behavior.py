@@ -37,6 +37,10 @@ class ParseProcessLog(list):
         self.process_name = None
         self.parent_id = None
         self.module_path = None
+        # Using an empty initializer here allows the assignment of current_log.threads in the Processes run()
+        # method to get a reference to the threads list we eventually build up by fully parsing a log
+        # via the behavior analysis that happens later.  By the time the results dict is used later
+        # to extract this information, it will finally have valid info.
         self.threads = []
         self.first_seen = None
         self.calls = self
@@ -75,9 +79,12 @@ class ParseProcessLog(list):
             self.fd = None
             return
 
-        # Get the process information from file to determine
-        # process id (file names.)
-        while not self.process_id:
+        # Get the process and environment information from file
+        # Note that we have to read in all messages until we
+        # get all the information we need, so the invariant below
+        # should involve the last process-related bit of
+        # information logged
+        while not self.environdict:
             self.parser.read_next_message()
 
         self.fd.seek(0)
@@ -368,7 +375,7 @@ class Processes:
 
             # Invoke parsing of current log file.
             current_log = ParseProcessLog(file_path)
-            if current_log.process_id is None:
+            if current_log.environdict is None:
                 continue
 
             # If the current log actually contains any data, add its data to

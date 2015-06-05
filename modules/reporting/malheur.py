@@ -52,6 +52,18 @@ def sanitize_url(url):
 def mist_convert(results):
     """ Performs conversion of analysis results to MIST format """
     lines = []
+
+    if results["target"]["category"] == "file":
+        lines.append("# FILE")
+        lines.append("# MD5: " + results["target"]["file"]["md5"])
+        lines.append("# SHA1: " + results["target"]["file"]["sha1"])
+        lines.append("# SHA256: " + results["target"]["file"]["sha256"])
+    elif results["target"]["category"] == "url":
+        lines.append("# URL")
+        lines.append("# MD5: " + hashlib.md5(results["target"]["url"]).hexdigest())
+        lines.append("# SHA1: " + hashlib.sha1(results["target"]["url"]).hexdigest())
+        lines.append("# SHA256: " + hashlib.sha256(results["target"]["url"]).hexdigest())
+
     if "behavior" in results and "summary" in results["behavior"]:
         for entry in results["behavior"]["summary"]["files"]:
             lines.append("file access|" + sanitize_file(entry))

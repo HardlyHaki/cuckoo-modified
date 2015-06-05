@@ -18,6 +18,11 @@
   <PropertyGroup Condition="'$(Configuration)' == 'Debug'" />
   <PropertyGroup Condition="'$(Configuration)' == 'Release'" />
   <ItemGroup>
+    <Content Include="analyzer\windows\bin\execsc.exe" />
+    <Content Include="analyzer\windows\bin\loader.exe" />
+    <Content Include="analyzer\windows\bin\loader_x64.exe" />
+    <Content Include="analyzer\windows\dll\cuckoomon.dll" />
+    <Content Include="analyzer\windows\dll\cuckoomon_x64.dll" />
     <Content Include="conf\auxiliary.conf" />
     <Content Include="conf\cuckoo.conf" />
     <Content Include="conf\esx.conf" />
@@ -109,6 +114,15 @@
     <Compile Include="analyzer\windows\modules\packages\swf.py" />
     <Compile Include="cuckoo.py" />
     <Compile Include="agent\agent.py" />
+    <Compile Include="lib\cuckoo\common\decoders\darkcomet.py">
+      <SubType>Code</SubType>
+    </Compile>
+    <Compile Include="lib\cuckoo\common\decoders\njrat.py">
+      <SubType>Code</SubType>
+    </Compile>
+    <Compile Include="lib\cuckoo\common\decoders\__init__.py">
+      <SubType>Code</SubType>
+    </Compile>
     <Compile Include="lib\cuckoo\common\icon.py">
       <SubType>Code</SubType>
     </Compile>
@@ -357,6 +371,7 @@
     <Content Include="web\templates\analysis\network\_tcp.html" />
     <Content Include="web\templates\analysis\procmemory\index.html" />
     <Content Include="web\templates\analysis\static\_pdf.html" />
+    <Content Include="web\templates\analysis\static\_ratconfig.html" />
     <Content Include="web\templates\api\index.html" />
     <Content Include="web\templates\base.html" />
     <Content Include="web\templates\error.html" />
@@ -438,6 +453,8 @@
     <Folder Include="agent" />
     <Folder Include="analyzer\" />
     <Folder Include="analyzer\windows" />
+    <Folder Include="analyzer\windows\bin\" />
+    <Folder Include="analyzer\windows\dll\" />
     <Folder Include="analyzer\windows\lib" />
     <Folder Include="analyzer\windows\lib\api" />
     <Folder Include="analyzer\windows\lib\common" />
@@ -474,6 +491,7 @@
     <Folder Include="lib" />
     <Folder Include="lib\cuckoo" />
     <Folder Include="lib\cuckoo\common" />
+    <Folder Include="lib\cuckoo\common\decoders\" />
     <Folder Include="lib\cuckoo\common\office\" />
     <Folder Include="lib\cuckoo\common\pdftools\" />
     <Folder Include="lib\cuckoo\common\peepdf\" />
