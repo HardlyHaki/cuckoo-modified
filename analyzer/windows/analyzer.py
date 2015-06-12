@@ -13,19 +13,20 @@ import hashlib
 import xmlrpclib
 import traceback
 import subprocess
-from ctypes import create_unicode_buffer, create_string_buffer
-from ctypes import c_wchar_p, byref, c_int, sizeof
+from ctypes import create_unicode_buffer, create_string_buffer, POINTER
+from ctypes import c_wchar_p, byref, c_int, sizeof, cast, c_void_p, c_ulong
 from threading import Lock, Thread
 from datetime import datetime, timedelta
 
 from lib.api.process import Process
 from lib.common.abstracts import Package, Auxiliary
 from lib.common.constants import PATHS, PIPE, SHUTDOWN_MUTEX, TERMINATE_EVENT
-from lib.common.defines import KERNEL32
+from lib.common.defines import KERNEL32, NTDLL
 from lib.common.defines import ERROR_MORE_DATA, ERROR_PIPE_CONNECTED
 from lib.common.defines import PIPE_ACCESS_DUPLEX, PIPE_TYPE_MESSAGE
 from lib.common.defines import PIPE_READMODE_MESSAGE, PIPE_WAIT
 from lib.common.defines import PIPE_UNLIMITED_INSTANCES, INVALID_HANDLE_VALUE
+from lib.common.defines import SYSTEM_PROCESS_INFORMATION
 from lib.common.defines import EVENT_MODIFY_STATE
 from lib.common.exceptions import CuckooError, CuckooPackageError
 from lib.common.hashing import hash_file
@@ -53,6 +54,7 @@ LASTINJECT_TIME = None
 
 PID = os.getpid()
 PPID = Process(pid=PID).get_parent_pid()
+HIDE_PIDS = None
 
 def in_protected_path(fname):
     """Checks file name against some protected names."""
@@ -248,29 +250,10 @@ class PipeHandler(Thread):
                 # In case of GETPIDS we're gonna return the current process ID
                 # and the process ID of our parent process (agent.py).
                 elif command == "GETPIDS":
-                    response = struct.pack("II", PID, PPID)
-
-                # When analyzing we don't want to hook all functions, as we're
-                # having some stability issues with regards to webbrowsers.
-                elif command == "HOOKDLLS":
-                    is_url = Config(cfg="analysis.conf").category != "file"
-
-                    url_dlls = "ntdll", "kernel32"
-
-                    def hookdll_encode(names):
-                        # We have to encode each dll name as unicode string
-                        # with length 16.
-                        names = [name + "\x00" * (16-len(name)) for name in names]
-                        f = lambda s: "".join(ch + "\x00" for ch in s)
-                        return "".join(f(name) for name in names)
-
-                    # If this sample is not a URL, then we don't want to limit
-                    # any API hooks (at least for now), so we write a null-byte
-                    # which indicates that all DLLs should be hooked.
-                    if not is_url:
-                        response = "\x00"
-                    else:
-                        response = hookdll_encode(url_dlls)
+                    hidepids = set()
+                    hidepids.update(HIDE_PIDS)
+                    hidepids.update([PID, PPID])
+                    response = struct.pack("%dI" % len(hidepids), *hidepids)
 
                 # remove pid from process list because we received a notification
                 # from kernel land
@@ -542,35 +525,34 @@ class Analyzer:
         self.config = None
         self.target = None
 
-    def pid_from_process_name(self, procname):
-        # tasklist sometimes fails under high-load (http://support.microsoft.com/kb/2732840)
-        # We can retry a few times to hopefully work around failures
-        retries = 4
-        while retries > 0: 
-            stdin, stdout, stderr = os.popen3("tasklist /V /FI \"IMAGENAME eq {0}\"".format(procname))
-            s = stdout.read()
-            err = stderr.read()
-            if procname not in s:
-                log.warning('tasklist failed with error "%s"' % (err))
-            else:
-                # it worked
-                break
-            retries -= 1
+    def pids_from_process_name_list(self, namelist):
+        proclist = []
+        pidlist = []
+        buf = create_string_buffer(1024 * 1024)
+        p = cast(buf, c_void_p)
+        retlen = c_ulong(0)
+        retval = NTDLL.NtQuerySystemInformation(5, buf, 1024 * 1024, byref(retlen))
+        if retval:
+           return []
+        proc = cast(p, POINTER(SYSTEM_PROCESS_INFORMATION)).contents
+        while proc.NextEntryOffset:
+            p.value += proc.NextEntryOffset
+            proc = cast(p, POINTER(SYSTEM_PROCESS_INFORMATION)).contents
+            proclist.append((proc.ImageName.Buffer[:proc.ImageName.Length/2], proc.UniqueProcessId))
 
-
-        if procname not in s:
-            # All attempts failed
-            log.error("Unable to retreive {0} PID".format(procname))
-            return None
-        else:
-            procnameidx = s.index(procname)
-            procnamestr = s[procnameidx + len(procname):].strip()
-            return int(procnamestr[:procnamestr.index(' ')], 10)
+        for proc in proclist:
+            lowerproc = proc[0].lower()
+            for name in namelist:
+                if lowerproc == name:
+                    pidlist.append(proc[1])
+                    break
+        return pidlist
 
     def prepare(self):
         """Prepare env for analysis."""
         global DEFAULT_DLL
         global SERVICES_PID
+        global HIDE_PIDS
 
         # Get SeDebugPrivilege for the Python process. It will be needed in
         # order to perform the injections.
@@ -607,7 +589,33 @@ class Analyzer:
         DEFAULT_DLL = self.config.get_options().get("dll")
 
         # get PID for services.exe for monitoring services
-        SERVICES_PID = self.pid_from_process_name("services.exe")
+        svcpid = self.pids_from_process_name_list(["services.exe"])
+        if svcpid:
+            SERVICES_PID = svcpid[0]
+
+        protected_procname_list = [
+            "vmwareuser.exe",
+            "vmwareservice.exe",
+            "vboxservice.exe",
+            "vboxtray.exe",
+            "sandboxiedcomlaunch.exe",
+            "sandboxierpcss.exe",
+            "procmon.exe",
+            "regmon.exe",
+            "filemon.exe",
+            "wireshark.exe",
+            "netmon.exe",
+            "prl_tools_service.exe",
+            "prl_tools.exe",
+            "prl_cc.exe",
+            "sharedintapp.exe",
+            "vmtoolsd.exe",
+            "vmsrvc.exe",
+            "python.exe",
+            "perl.exe",
+        ]
+
+        HIDE_PIDS = set(self.pids_from_process_name_list(protected_procname_list))
 
         # Initialize and start the Pipe Servers. This is going to be used for
         # communicating with the injected and monitored processes.

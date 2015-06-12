@@ -1253,7 +1253,7 @@ def demux_sample(filename, options):
                     continue
                 base, ext = os.path.splitext(info.filename)
                 ext = ext.lower()
-                extensions = ["", ".exe", ".dll", ".pdf", ".doc", ".ppt", ".xls", ".msi", ".bin"]
+                extensions = ["", ".exe", ".dll", ".pdf", ".doc", ".ppt", ".pptx", ".docx", ".xls", ".msi", ".bin", ".scr"]
                 for theext in extensions:
                     if ext == theext:
                         extracted.append(info.filename)
@@ -1318,32 +1318,51 @@ def get_vt_consensus(namelist):
         "zbot",
         "w2km",
         "docdl",
+        "variant",
+        "packed",
+        "trojware",
+        "worm",
+        "genetic",
+        "backdoor",
+        "email",
+        "obfuscated",
+        "cryptor",
+        "obfus",
+        "virus",
+        "xpack",
+        "crypt",
+        "rootkit",
+        "malwares",
+        "suspicious",
+        "riskware",
+        "risk",
     ]
 
-
     finaltoks = defaultdict(int)
-
     for name in namelist:
         toks = re.findall(r"[A-Za-z0-9]+", name)
-        acceptedtoks = []
         for tok in toks:
-            accepted = True
-            numlist = [x for x in tok if x.isdigit()]
-            if len(numlist) > 2 or len(tok) < 4:
-                accepted = False
-            if accepted:
-                for black in blacklist:
-                    if black == tok.lower():
-                        accepted = False
-                        break
-            if accepted:
-                acceptedtoks.append(tok)
-        for tok in acceptedtoks:
             finaltoks[tok] += 1
+    for tok in finaltoks.keys():
+        lowertok = tok.lower()
+        accepted = True
+        numlist = [x for x in tok if x.isdigit()]
+        if len(numlist) > 2 or len(tok) < 4:
+            accepted = False
+        if accepted:
+            for black in blacklist:
+                if black == lowertok:
+                    accepted = False
+                    break
+        if not accepted:
+            del finaltoks[tok]
+
     sorted_finaltoks = sorted(finaltoks.items(), key=operator.itemgetter(1), reverse=True)
     if len(sorted_finaltoks) == 1 and sorted_finaltoks[0][1] >= 2:
         return sorted_finaltoks[0][0]
-    elif len(sorted_finaltoks) > 1 and sorted_finaltoks[0][1] >= sorted_finaltoks[1][1] * 2:
+    elif len(sorted_finaltoks) > 1 and (sorted_finaltoks[0][1] >= sorted_finaltoks[1][1] * 2 or sorted_finaltoks[0][1] > 8):
+        return sorted_finaltoks[0][0]
+    elif len(sorted_finaltoks) > 1 and sorted_finaltoks[0][1] == sorted_finaltoks[1][1] and sorted_finaltoks[0][1] > 2:
         return sorted_finaltoks[0][0]
     return ""
 

@@ -211,7 +211,7 @@ class AnalysisManager(Thread):
             # if it's a PE file, collect export information to use in more smartly determining the right
             # package to use
             options["exports"] = ""
-            if HAVE_PEFILE and ("PE32" in options["file_type"] or options["file_type"] == "MS-DOS executable"):
+            if HAVE_PEFILE and ("PE32" in options["file_type"] or "MS-DOS executable" in options["file_type"]):
                 try:
                     pe = pefile.PE(self.task.target)
                     if hasattr(pe, "DIRECTORY_ENTRY_EXPORT"):
@@ -253,7 +253,6 @@ class AnalysisManager(Thread):
             log.error("Cannot acquire machine: {0}".format(e))
             return False
 
-        Database().set_statistics_time(self.task.id, ANALYSIS_STARTED)
         # Generate the analysis configuration file.
         options = self.build_options()
 
@@ -283,6 +282,8 @@ class AnalysisManager(Thread):
 
             # Start the analysis.
             guest.start_analysis(options)
+
+            Database().set_statistics_time(self.task.id, ANALYSIS_STARTED)
 
             guest.wait_for_completion()
             succeeded = True
