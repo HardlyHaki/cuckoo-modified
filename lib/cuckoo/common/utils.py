@@ -20,6 +20,7 @@ from collections import defaultdict
 
 from lib.cuckoo.common.exceptions import CuckooOperationalError
 from lib.cuckoo.common.config import Config
+from lib.cuckoo.common.objects import File
 
 try:
     import re2 as re
@@ -246,6 +247,9 @@ def pretty_print_arg(category, api_name, arg_name, arg_val):
                 0x8002 : "MD4",
                 0x8003 : "MD5",
                 0x8004 : "SHA1",
+                0x800c : "SHA_256",
+                0x800d : "SHA_384",
+                0x800e : "SHA_512",
                 0x8005 : "MAC",
                 0x8009 : "HMAC",
                 0x2400 : "RSA Public Key Signature",
@@ -253,9 +257,26 @@ def pretty_print_arg(category, api_name, arg_name, arg_val):
                 0xa400 : "RSA Public Key Exchange",
                 0x6602 : "RC2",
                 0x6801 : "RC4",
+                0x660d : "RC5",
                 0x6601 : "DES",
                 0x6603 : "3DES",
-                0x6609 : "Two-key 3DES"
+                0x6604 : "DESX",
+                0x6609 : "Two-key 3DES",
+                0x6611 : "AES",
+                0x660e : "AES_128",
+                0x660f : "AES_192",
+                0x6610 : "AES_256",
+                0xaa03 : "AGREEDKEY_ANY",
+                0x660c : "CYLINK_MEK",
+                0xaa02 : "DH_EPHEM",
+                0xaa01 : "DH_SF",
+                0x2200 : "DSS_SIGN",
+                0xaa05 : "ECDH",
+                0x2203 : "ECDSA",
+                0xa001 : "ECMQV",
+                0x800b : "HASH_REPLACE_OWF",
+                0xa003 : "HUGHES_MD5",
+                0x2000 : "NO_SIGN",
         }.get(val, None)
     elif api_name == "SHGetFolderPathW" and arg_name == "Folder":
         val = int(arg_val, 16)
@@ -1236,6 +1257,12 @@ def demux_sample(filename, options):
     retlist = []
 
     try:
+        # don't try to extract from office docs
+        magic = File(filename).get_type()
+        if "Microsoft" in magic:
+            retlist.append(filename)
+            return retlist
+
         extracted = []
         password="infected"
         fields = options.split(",")
@@ -1252,7 +1279,10 @@ def demux_sample(filename, options):
                 if info.file_size > 100 * 1024 * 1024:
                     continue
                 base, ext = os.path.splitext(info.filename)
+                basename = os.path.basename(info.filename)
                 ext = ext.lower()
+                if ext == "" and len(basename) and basename[0] == ".":
+                    continue
                 extensions = ["", ".exe", ".dll", ".pdf", ".doc", ".ppt", ".pptx", ".docx", ".xls", ".msi", ".bin", ".scr"]
                 for theext in extensions:
                     if ext == theext:
@@ -1336,13 +1366,24 @@ def get_vt_consensus(namelist):
         "suspicious",
         "riskware",
         "risk",
+        "win64",
+        "troj64",
+        "drop",
+        "hacktool",
+        "exploit",
+        "msil",
+        "inject",
+        "dropped",
+        "program",
+        "unwanted",
+        "heuristic",
     ]
 
     finaltoks = defaultdict(int)
     for name in namelist:
         toks = re.findall(r"[A-Za-z0-9]+", name)
         for tok in toks:
-            finaltoks[tok] += 1
+            finaltoks[tok.title()] += 1
     for tok in finaltoks.keys():
         lowertok = tok.lower()
         accepted = True

@@ -495,13 +495,15 @@ class RunSignatures(object):
                 malscore += match["weight"] * (match["severity"] - 1) * (match["confidence"] / 100.0)
         if malscore > 10.0:
             malscore = 10.0
+        if malscore < 0.0:
+            malscore = 0.0
         self.results["malscore"] = malscore
 
         family = ""
         # Make a best effort detection of malware family name (can be updated later by re-processing the analysis)
         for match in matched:
-            if "family" in match and match["family"]:
-                family = match["family"]
+            if "families" in match and match["families"]:
+                family = match["families"][0].title()
                 break
         if not family and "virustotal" in self.results and "results" in self.results["virustotal"] and self.results["virustotal"]["results"]:
             detectnames = []
@@ -514,7 +516,7 @@ class RunSignatures(object):
             family = get_vt_consensus(detectnames)
         
         # add detection based on suricata here
-        if "suricata" in self.results and "alerts" in self.results["suricata"] and self.results["suricata"]["alerts"]:
+        if not family and "suricata" in self.results and "alerts" in self.results["suricata"] and self.results["suricata"]["alerts"]:
             for alert in self.results["suricata"]["alerts"]:
                 if "signature" in alert and alert["signature"]:
                     if alert["signature"].startswith("ET TROJAN") or alert["signature"].startswith("ETPRO TROJAN"):
@@ -531,6 +533,10 @@ class RunSignatures(object):
                             "generic",
                             "possible",
                             "known",
+                            "common",
+                            "troj",
+                            "team",
+                            "probably",
                         ]
                         isgood = True
                         for black in blacklist:
@@ -541,7 +547,7 @@ class RunSignatures(object):
                             if famchecklower.startswith("win32"):
                                 famcheck = famcheck[6:]
                             famcheck = famcheck.split(".")[0]
-                            family = famcheck
+                            family = famcheck.title()
 
         self.results["malfamily"] = family
 

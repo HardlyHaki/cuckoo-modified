@@ -110,7 +110,7 @@ def index(request, page=1):
             if db.view_errors(task.id):
                 new["errors"] = True
 
-            rtmp = results_db.analysis.find_one({"info.id": int(new["id"])},{"virustotal_summary": 1,"network.pcap_id":1, "info.custom":1, "info.shrike_msg":1,"malscore": 1},sort=[("_id", pymongo.DESCENDING)])
+            rtmp = results_db.analysis.find_one({"info.id": int(new["id"])},{"virustotal_summary": 1,"network.pcap_id":1, "info.custom":1, "info.shrike_msg":1,"malscore": 1, "malfamily": 1},sort=[("_id", pymongo.DESCENDING)])
             stmp = results_db.suricata.find_one({"info.id": int(new["id"])},{"tls_cnt": 1, "alert_cnt": 1, "http_cnt": 1, "file_cnt": 1, "http_log_id": 1, "tls_log_id": 1, "alert_log_id": 1, "file_log_id": 1},sort=[("_id", pymongo.DESCENDING)])
             if rtmp:
                 if rtmp.has_key("virustotal_summary") and rtmp["virustotal_summary"]:
@@ -133,6 +133,8 @@ def index(request, page=1):
                     new["suri_http_cnt"] = rtmp["suri_http_cnt"]
                 if rtmp.has_key("malscore"):
                     new["malscore"] = rtmp["malscore"]
+                if rtmp.has_key("malfamily"):
+                    new["malfamily"] = rtmp["malfamily"]
 
             if settings.MOLOCH_ENABLED:
                 if settings.MOLOCH_BASE[-1] != "/":
@@ -171,7 +173,7 @@ def index(request, page=1):
             if db.view_errors(task.id):
                 new["errors"] = True
 
-            rtmp = results_db.analysis.find_one({"info.id": int(new["id"])},{"virustotal_summary": 1, "network.pcap_id":1, "info.custom":1, "info.shrike_msg":1,"signatures":1,"malscore": 1},sort=[("_id", pymongo.DESCENDING)])
+            rtmp = results_db.analysis.find_one({"info.id": int(new["id"])},{"virustotal_summary": 1, "network.pcap_id":1, "info.custom":1, "info.shrike_msg":1,"signatures":1,"malscore": 1,"malfamily": 1},sort=[("_id", pymongo.DESCENDING)])
             stmp = results_db.suricata.find_one({"info.id": int(new["id"])},{"tls_cnt": 1, "alert_cnt": 1, "http_cnt": 1, "file_cnt": 1, "http_log_id": 1, "tls_log_id": 1, "alert_log_id": 1, "file_log_id": 1},sort=[("_id", pymongo.DESCENDING)])
             if rtmp:
                 if rtmp.has_key("virustotal_summary") and rtmp["virustotal_summary"]:
@@ -196,6 +198,8 @@ def index(request, page=1):
                     new["suri_http_cnt"] = rtmp["suri_http_cnt"]
                 if rtmp.has_key("malscore"):
                     new["malscore"] = rtmp["malscore"]
+                if rtmp.has_key("malfamily"):
+                    new["malfamily"] = rtmp["malfamily"]
 
             if settings.MOLOCH_ENABLED:
                 if settings.MOLOCH_BASE[-1] != "/":
@@ -803,7 +807,7 @@ def search(request):
             elif term == "type":
                 records = results_db.analysis.find({"target.file.type": {"$regex": value, "$options": "-i"}}).sort([["_id", -1]])
             elif term == "string":
-                records = results_db.analysis.find({"strings" : {"$regex" : value, "$options" : "-1"}}).sort([["_id", -1]])
+                records = results_db.analysis.find({"strings": {"$regex" : value, "$options" : "-i"}}).sort([["_id", -1]])
             elif term == "ssdeep":
                 records = results_db.analysis.find({"target.file.ssdeep": {"$regex": value, "$options": "-i"}}).sort([["_id", -1]])
             elif term == "crc32":
@@ -852,8 +856,8 @@ def search(request):
                 records = results_db.analysis.find({"target.file.clamav": {"$regex": value, "$options": "-i"}}).sort([["_id", -1]])
             elif term == "yaraname":
                 records = results_db.analysis.find({"target.file.yara.name": {"$regex": value, "$options": "-i"}}).sort([["_id", -1]])
-            elif term == "strings":
-                records = results_db.analysis.find({"strings": {"$regex": value, "$options": "-i"}}).sort([["_id", -1]])
+            elif term == "procmemyara":
+                records = results_db.analysis.find({"procmemory.yara.name": {"$regex": value, "$options": "-i"}}).sort([["_id", -1]])
             elif term == "virustotal":
                 records = results_db.analysis.find({"virustotal.results.sig": {"$regex": value, "$options": "-i"}}).sort([["_id", -1]])
             elif term == "machinename":
@@ -916,7 +920,7 @@ def search(request):
                         new["sample"] = sample.to_dict()
                 filename = os.path.basename(new["target"])
                 new.update({"filename": filename})
-            rtmp = results_db.analysis.find_one({"info.id": int(new["id"])},{"virustotal_summary": 1, "network.pcap_id":1, "info.custom":1, "info.shrike_msg":1,"signatures":1,"malscore": 1},sort=[("_id", pymongo.DESCENDING)])
+            rtmp = results_db.analysis.find_one({"info.id": int(new["id"])},{"virustotal_summary": 1, "network.pcap_id":1, "info.custom":1, "info.shrike_msg":1,"signatures":1,"malscore": 1,"malfamily": 1,},sort=[("_id", pymongo.DESCENDING)])
             stmp = results_db.suricata.find_one({"info.id": int(new["id"])},{"tls_cnt": 1, "alert_cnt": 1, "http_cnt": 1, "file_cnt": 1, "http_log_id": 1, "tls_log_id": 1, "alert_log_id": 1, "file_log_id": 1},sort=[("_id", pymongo.DESCENDING)])
 
             if rtmp:
@@ -936,6 +940,8 @@ def search(request):
                             new["mlist_cnt"] = len(entry["data"])
                 if rtmp.has_key("malscore"):
                     new["malscore"] = rtmp["malscore"]
+                if rtmp.has_key("malfamily") and rtmp["malfamily"]:
+                    new["malfamily"] = rtmp["malfamily"]
 
             if settings.MOLOCH_ENABLED:
                 if settings.MOLOCH_BASE[-1] != "/":

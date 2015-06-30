@@ -7,6 +7,7 @@ import socket
 import struct
 import tempfile
 import logging
+from collections import OrderedDict
 from urlparse import urlunparse
 
 try:
@@ -76,9 +77,9 @@ class Pcap:
         # List containing all ICMP requests.
         self.icmp_requests = []
         # List containing all HTTP requests.
-        self.http_requests = {}
+        self.http_requests = OrderedDict()
         # List containing all DNS requests.
-        self.dns_requests = {}
+        self.dns_requests = OrderedDict()
         self.dns_answers = set()
         # List containing all SMTP requests.
         self.smtp_requests = []
@@ -663,7 +664,10 @@ class NetworkAnalysis(Processing):
         sorted_path = self.pcap_path.replace("dump.", "dump_sorted.")
         if Config().processing.sort_pcap:
             sort_pcap(self.pcap_path, sorted_path)
+            buf = Pcap(self.pcap_path).run()
             results = Pcap(sorted_path).run()
+            results["http"] = buf["http"]
+            results["dns"] = buf["dns"]
         else:
             results = Pcap(self.pcap_path).run()
 
@@ -744,26 +748,30 @@ class SortCap(object):
     def __init__(self, path, linktype=1):
         self.name = path
         self.linktype = linktype
+        self.fileobj = None
         self.fd = None
         self.ctr = 0  # counter to pass through packets without flow info (non-IP)
         self.conns = set()
 
     def write(self, p):
-        if not self.fd:
-            self.fd = dpkt.pcap.Writer(open(self.name, "wb"), linktype=self.linktype)
+        if not self.fileobj:
+            self.fileobj = open(self.name, "wb")
+            self.fd = dpkt.pcap.Writer(self.fileobj, linktype=self.linktype)
         self.fd.writepkt(p.raw, p.ts)
 
     def __iter__(self):
-        if not self.fd:
-            self.fd = dpkt.pcap.Reader(open(self.name, "rb"))
+        if not self.fileobj:
+            self.fileobj = open(self.name, "rb")
+            self.fd = dpkt.pcap.Reader(self.fileobj)
             self.fditer = iter(self.fd)
             self.linktype = self.fd.datalink()
         return self
 
     def close(self):
-        if self.fd:
-            self.fd.close()
+        if self.fileobj:
+            self.fileobj.close()
         self.fd = None
+        self.fileobj = None
 
     def next(self):
         rp = next(self.fditer)

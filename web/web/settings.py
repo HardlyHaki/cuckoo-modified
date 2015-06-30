@@ -42,6 +42,9 @@ TOR_ENABLED = tor_cfg.get("enabled",False)
 DISPLAY_ZMON = display_zmon_cfg.get("enabled",False)
 DISPLAY_SHRIKE = display_shrike_cfg.get("enabled",False)
 
+# Enabled/Disable Zer0m0n tickbox on the submission page
+OPT_ZER0M0N = False
+
 # To disable comment support, change the below to False
 COMMENTS = True
 
