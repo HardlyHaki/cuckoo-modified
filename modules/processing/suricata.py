@@ -44,6 +44,7 @@ class Suricata(Processing):
         SURICATA_DNS_LOG = self.options.get("dnslog",None)
         SURICATA_FILES_DIR = self.options.get("filesdir",None)
         SURICATA_RUNMODE = self.options.get("runmode",None)
+        SURICATA_FILE_BUFFER = self.options.get("buffer", 8192)
         Z7_PATH = self.options.get("7zbin",None)
         FILES_ZIP_PASS = self.options.get("zippass",None)
         SURICATA_FILE_COPY_DST_DIR = self.options.get("file_copy_dest_dir",None)
