@@ -18,9 +18,9 @@ It offers a number of advantages over the upstream Cuckoo:
 + Ability to post comments about analyses
 + Deep hooks in IE's JavaScript and DOM engines usable for Exploit Kit identification
 + Automatic extraction and submission of interesting files from ZIPs, RARs, RFC 2822 emails (.eml), and Outlook .msg files
-+ Direct submission of AV quarantine files (Forefront, McAfee, and Trend Micro formats currently supported)
++ Direct submission of AV quarantine files (Forefront, McAfee, Trend Micro, Kaspersky, MalwareBytes, MSE/SCEP, and SEP12 formats currently supported)
 + Automatic malware classification by [Malheur](http://mlsec.org/malheur/)
-+ Significant contributions from [Jeremy Hedges](https://github.com/killerinstinct/) and [William Metcalf](https://github.com/wmetcalf)
++ Significant contributions from [Jeremy Hedges](https://github.com/killerinstinct/), [William Metcalf](https://github.com/wmetcalf), and Kevin Ross
 + Hundreds of other bugfixes
 
 For more information on the initial set of changes, see:
