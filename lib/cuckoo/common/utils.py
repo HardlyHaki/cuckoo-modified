@@ -15,12 +15,10 @@ import threading
 import multiprocessing
 import operator
 from datetime import datetime
-from zipfile import ZipFile
 from collections import defaultdict
 
 from lib.cuckoo.common.exceptions import CuckooOperationalError
 from lib.cuckoo.common.config import Config
-from lib.cuckoo.common.objects import File
 
 try:
     import re2 as re
@@ -1250,71 +1248,6 @@ def store_temp_file(filedata, filename, path=None):
     os.chmod(tmp_file_path,0664)       
     return tmp_file_path
 
-def demux_sample(filename, options):
-    """
-    If file is a ZIP, extract its included files and return their file paths
-    """
-    retlist = []
-
-    try:
-        # don't try to extract from office docs
-        magic = File(filename).get_type()
-        if "Microsoft" in magic or "Java Jar" in magic:
-            retlist.append(filename)
-            return retlist
-
-        extracted = []
-        password="infected"
-        fields = options.split(",")
-        for field in fields:
-            key, value = field.split("=", 1)
-            if key == "password":
-                password = value
-                break
-
-        with ZipFile(filename, "r") as archive:
-            infolist = archive.infolist()
-            for info in infolist:
-                # avoid obvious bombs
-                if info.file_size > 100 * 1024 * 1024 or not info.file_size:
-                    continue
-                # ignore directories
-                if info.filename.endswith("/"):
-                    continue
-                base, ext = os.path.splitext(info.filename)
-                basename = os.path.basename(info.filename)
-                ext = ext.lower()
-                if ext == "" and len(basename) and basename[0] == ".":
-                    continue
-                extensions = ["", ".exe", ".dll", ".pdf", ".doc", ".ppt", ".pptx", ".docx", ".xls", ".msi", ".bin", ".scr"]
-                for theext in extensions:
-                    if ext == theext:
-                        extracted.append(info.filename)
-                        break
-
-            options = Config()
-            tmp_path = options.cuckoo.get("tmppath", "/tmp")
-            target_path = os.path.join(tmp_path, "cuckoo-zip-tmp")
-            if not os.path.exists(target_path):
-                os.mkdir(target_path)
-            tmp_dir = tempfile.mkdtemp(prefix='cuckoozip_',dir=target_path)
-
-            for extfile in extracted:
-                try:
-                    retlist.append(archive.extract(extfile, path=tmp_dir, pwd=password))
-                except:
-                    retlist.append(archive.extract(extfile, path=tmp_dir))
-    except:
-        pass
-
-    # if it wasn't a ZIP or we weren't able to obtain anything interesting from the ZIP, then just submit the
-    # original file
-
-    if not retlist:
-        retlist.append(filename)
-
-    return retlist
-
 def get_vt_consensus(namelist):
     blacklist = [
         "other",
@@ -1380,6 +1313,15 @@ def get_vt_consensus(namelist):
         "program",
         "unwanted",
         "heuristic",
+        "patcher",
+        "tool",
+        "potentially",
+        "rogue",
+        "keygen",
+        "unsafe",
+        "application",
+        "risktool",
+        "multi",
     ]
 
     finaltoks = defaultdict(int)

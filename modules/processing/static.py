@@ -110,6 +110,27 @@ class PortableExecutable:
         except:
             return None
 
+    def _get_pdb_path(self):
+        if not self.pe:
+            return None
+
+        try:
+            for dbg in self.pe.DIRECTORY_ENTRY_DEBUG:
+                dbgst = dbg.struct
+                dbgdata = self.pe.__data__[dbgst.PointerToRawData:dbgst.PointerToRawData+dbgst.SizeOfData]
+                if dbgst.Type == 4: #MISC
+                    datatype, length, uniflag = struct.unpack_from("IIB", dbgdata)
+                    return str(dbgdata[12:length]).rstrip('\0')
+                elif dbgst.Type == 2: #CODEVIEW
+                    if dbgdata[:4] == "RSDS":
+                        return str(dbgdata[24:]).rstrip('\0')
+                    elif dbgdata[:4] == "NB10":
+                        return str(dbgdata[16:]).rstrip('\0')
+        except:
+            pass
+
+        return None
+
     def _get_imported_symbols(self):
         """Gets imported symbols.
         @return: imported symbols dict or None.
@@ -264,6 +285,15 @@ class PortableExecutable:
             return None
 
         return "0x{0:08x}".format(self.pe.OPTIONAL_HEADER.ImageBase + self.pe.OPTIONAL_HEADER.AddressOfEntryPoint)
+
+    def _get_osversion(self):
+        """Get minimum required OS version for PE to execute
+        @return: minimum OS version or None.
+        """
+        if not self.pe:
+            return None
+
+        return "{0}.{1}".format(self.pe.OPTIONAL_HEADER.MajorOperatingSystemVersion, self.pe.OPTIONAL_HEADER.MinorOperatingSystemVersion)
 
     def _get_resources(self):
         """Get resources.
@@ -458,6 +488,8 @@ class PortableExecutable:
         results["peid_signatures"] = self._get_peid_signatures()
         results["pe_imagebase"] = self._get_imagebase()
         results["pe_entrypoint"] = self._get_entrypoint()
+        results["pe_osversion"] = self._get_osversion()
+        results["pe_pdbpath"] = self._get_pdb_path()
         results["pe_imports"] = self._get_imported_symbols()
         results["pe_exports"] = self._get_exported_symbols()
         results["pe_dirents"] = self._get_directory_entries()

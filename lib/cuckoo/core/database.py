@@ -13,7 +13,8 @@ from lib.cuckoo.common.exceptions import CuckooDatabaseError
 from lib.cuckoo.common.exceptions import CuckooOperationalError
 from lib.cuckoo.common.exceptions import CuckooDependencyError
 from lib.cuckoo.common.objects import File, URL
-from lib.cuckoo.common.utils import create_folder, demux_sample, Singleton, classlock, SuperLock
+from lib.cuckoo.common.utils import create_folder, Singleton, classlock, SuperLock
+from lib.cuckoo.common.demux import demux_sample
 
 try:
     from sqlalchemy import create_engine, Column
@@ -1039,6 +1040,8 @@ class Database(object):
                 task.clock = clocktime
             except:
                 pass
+        else:
+            task.clock = datetime.now()
 
         session.add(task)
 
@@ -1095,7 +1098,7 @@ class Database(object):
         """
         task_ids = []
         # extract files from the (potential) ZIP
-        extracted_files = demux_sample(file_path, options)
+        extracted_files = demux_sample(file_path, package, options)
         # create tasks for each file in the ZIP
         for file in extracted_files:
             task_id = self.add_path(file_path=file,

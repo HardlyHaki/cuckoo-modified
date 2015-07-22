@@ -61,6 +61,11 @@ if settings.DISPLAY_SHRIKE:
 else:
     enabledconf["display_shrike"] = False
 
+if settings.DISPLAY_ET_PORTAL:
+    enabledconf["display_et_portal"] = True
+else:
+    enabledconf["display_et_portal"] = False
+
 @require_safe
 def index(request, page=1):
     page = int(page)
@@ -463,7 +468,8 @@ def surialert(request,task_id):
             suricata=gen_moloch_from_suri_alerts(suricata)
 
     return render_to_response("analysis/surialert.html",
-                              {"suricata": suricata},
+                              {"suricata": suricata,
+                               "config": enabledconf},
                               context_instance=RequestContext(request))
 def shrike(request,task_id):
     shrike = results_db.analysis.find_one({"info.id": int(task_id)},{"info.shrike_url": 1,"info.shrike_msg": 1,"info.shrike_sid":1, "info.shrike_refer":1},sort=[("_id", pymongo.DESCENDING)])
@@ -490,7 +496,8 @@ def surihttp(request,task_id):
             suricata=gen_moloch_from_suri_http(suricata)
 
     return render_to_response("analysis/surihttp.html",
-                              {"suricata": suricata},
+                              {"suricata": suricata,
+                               "config": enabledconf},
                               context_instance=RequestContext(request))
 
 def suritls(request,task_id):
@@ -505,7 +512,8 @@ def suritls(request,task_id):
         if suricata.has_key("tls"):
             suricata=gen_moloch_from_suri_tls(suricata)
     return render_to_response("analysis/suritls.html",
-                              {"suricata": suricata},
+                              {"suricata": suricata,
+                               "config": enabledconf},
                               context_instance=RequestContext(request))
 def surifiles(request,task_id):
     suricata = results_db.suricata.find_one({"info.id": int(task_id)},{"files": 1,"files_cnt": 1},sort=[("_id", pymongo.DESCENDING)])
@@ -519,7 +527,8 @@ def surifiles(request,task_id):
         if suricata.has_key("files"):
             suricata=gen_moloch_from_suri_tls(suricata)
     return render_to_response("analysis/surifiles.html",
-                              {"suricata": suricata},
+                              {"suricata": suricata,
+                               "config": enabledconf},
                               context_instance=RequestContext(request))
 
 def antivirus(request,task_id):

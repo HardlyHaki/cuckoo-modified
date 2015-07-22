@@ -19,6 +19,7 @@ tor_cfg = Config("auxiliary").tor
 ie_martians_cfg = Config("auxiliary").iemartiansinwebui
 display_zmon_cfg = Config("auxiliary").displayzmoninwebui
 display_shrike_cfg = Config("auxiliary").displayshrikeinwebui
+display_et_portal_cfg = Config("auxiliary").displayetportalinwebui
 # Checks if mongo reporting is enabled in Cuckoo.
 if not cfg.get("enabled"):
     raise Exception("Mongo reporting module is not enabled in cuckoo, aborting!")
@@ -41,6 +42,7 @@ VTDL_PATH = vtdl_cfg.get("dlpath",None)
 TOR_ENABLED = tor_cfg.get("enabled",False)
 DISPLAY_ZMON = display_zmon_cfg.get("enabled",False)
 DISPLAY_SHRIKE = display_shrike_cfg.get("enabled",False)
+DISPLAY_ET_PORTAL = display_et_portal_cfg.get("enabled",False)
 
 # Enabled/Disable Zer0m0n tickbox on the submission page
 OPT_ZER0M0N = False
