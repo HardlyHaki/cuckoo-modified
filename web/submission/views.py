@@ -289,7 +289,6 @@ def index(request):
                                    "gateways": settings.GATEWAYS,
                                    "vtdlenabled": settings.VTDL_ENABLED,
                                    "torenabled": settings.TOR_ENABLED,
-                                   "zmonenabled": settings.DISPLAY_ZMON,
                                    "config": enabledconf},
                                   context_instance=RequestContext(request))
 

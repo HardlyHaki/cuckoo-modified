@@ -10,6 +10,7 @@ import lib.cuckoo.common.decoders.njrat as njrat
 import logging
 import os
 import base64
+from datetime import datetime, timedelta
 
 from lib.cuckoo.common.icon import PEGroupIconDir
 from PIL import Image
@@ -89,11 +90,17 @@ def _get_filetype(data):
 class PortableExecutable:
     """PE analysis."""
 
-    def __init__(self, file_path):
+    def __init__(self, file_path, results):
         """@param file_path: file path."""
         self.file_path = file_path
         self.pe = None
+        self.results = results
 
+    def add_statistic(self, name, field, value):
+        self.results["statistics"]["processing"].append({
+            "name": name,
+            field: value,
+        })
 
     def _get_peid_signatures(self):
         """Gets PEID signatures.
@@ -485,7 +492,13 @@ class PortableExecutable:
             return None
 
         results = {}
+
+        pretime = datetime.now()
         results["peid_signatures"] = self._get_peid_signatures()
+        posttime = datetime.now()
+        timediff = posttime - pretime
+        self.add_statistic("peid", "time", float("%d.%03d" % (timediff.seconds, timediff.microseconds / 1000)))
+
         results["pe_imagebase"] = self._get_imagebase()
         results["pe_entrypoint"] = self._get_entrypoint()
         results["pe_osversion"] = self._get_osversion()
@@ -503,12 +516,17 @@ class PortableExecutable:
         results["digital_signers"] = self._get_digital_signers()
         results["imported_dll_count"] = len([x for x in results["pe_imports"] if x.get("dll")])
 
+        
+        pretime = datetime.now()
         darkcomet_config = darkcomet.extract_config(self.file_path, self.pe)
         if darkcomet_config:
             results["darkcomet_config"] = darkcomet_config
         njrat_config = njrat.extract_config(self.file_path)
         if njrat_config:
             results["njrat_config"] = njrat_config
+        posttime = datetime.now()
+        timediff = posttime - pretime
+        self.add_statistic("config_decoder", "time", float("%d.%03d" % (timediff.seconds, timediff.microseconds / 1000)))
 
         return results
 
@@ -770,7 +788,7 @@ class Static(Processing):
         if self.task["category"] == "file":
             thetype = File(self.file_path).get_type()
             if HAVE_PEFILE and ("PE32" in thetype or "MS-DOS executable" in thetype):
-                static = PortableExecutable(self.file_path).run()
+                static = PortableExecutable(self.file_path, self.results).run()
             elif "PDF" in thetype:
                 static = PDF(self.file_path).run()
             elif "Word 2007" in thetype or "Excel 2007" in thetype or "PowerPoint 2007" in thetype:

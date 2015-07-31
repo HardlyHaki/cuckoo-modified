@@ -1,0 +1,49 @@
+{% if analysis.statistics %}
+    <div class="row">
+    <div class="well well-small col-md-6">
+        <h4>Processing</h4>
+        <ul class="list-group">
+            {% for stat in analysis.statistics.processing|dictsortreversed:"time" %}
+            {% if stat.time %}
+            <li class="list-group-item">
+                <span class="badge">{{stat.time}}</span>
+                {{stat.name}}
+            </li>
+            {% endif %}
+            {% endfor %}
+        </ul>
+    </div>
+    </div>
+    <div class="row">
+    <div class="well well-small col-md-6">
+        <h4>Signatures</h4>
+        <ul class="list-group">
+            {% for stat in analysis.statistics.signatures|dictsortreversed:"time" %}
+            {% if stat.time %}
+            <li class="list-group-item">
+                <span class="badge">{{stat.time}}</span>
+                {{stat.name}}
+            </li>
+            {% endif %}
+            {% endfor %}
+        </ul>
+    </div>
+    </div>
+    <div class="row">
+    <div class="well well-small col-md-6">
+        <h4>Reporting</h4>
+        <ul class="list-group">
+            {% for stat in analysis.statistics.reporting|dictsortreversed:"time" %}
+            {% if stat.time %}
+            <li class="list-group-item">
+                <span class="badge">{{stat.time}}</span>
+                {{stat.name}}
+            </li>
+            {% endif %}
+            {% endfor %}
+        </ul>
+    </div>
+    </div>
+{% else %}
+    <div class="alert alert-info">No statistics found.</div>
+{% endif %}

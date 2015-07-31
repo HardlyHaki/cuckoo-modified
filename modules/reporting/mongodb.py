@@ -252,6 +252,12 @@ class MongoDB(Report):
             report["behavior"] = dict(report["behavior"])
             report["behavior"]["processes"] = new_processes
 
+        # Calculate the mlist_cnt for display if present to reduce db load
+        if "signatures" in results:
+            for entry in results["signatures"]:
+                if entry["name"] == "ie_martian_children":
+                    report["mlist_cnt"] = len(entry["data"])
+
         #Other info we want Quick access to from the web UI
         if results.has_key("virustotal") and results["virustotal"] and results["virustotal"].has_key("positives") and results["virustotal"].has_key("total"):
             report["virustotal_summary"] = "%s/%s" % (results["virustotal"]["positives"],results["virustotal"]["total"])

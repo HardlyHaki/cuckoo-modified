@@ -7,6 +7,7 @@ import json
 import pkgutil
 import inspect
 import logging
+from datetime import datetime, timedelta
 from collections import defaultdict
 from distutils.version import StrictVersion
 
@@ -197,7 +198,15 @@ class RunProcessing(object):
         try:
             # Run the processing module and retrieve the generated data to be
             # appended to the general results container.
+            pretime = datetime.now()
             data = current.run()
+            posttime = datetime.now()
+            timediff = posttime - pretime
+            self.results["statistics"]["processing"].append({
+                "name": current.__class__.__name__,
+                "time": float("%d.%03d" % (timediff.seconds,
+                                         timediff.microseconds / 1000)),
+                })
 
             log.debug("Executed processing module \"%s\" on analysis at "
                       "\"%s\"", current.__class__.__name__, self.analysis_path)
@@ -373,7 +382,17 @@ class RunSignatures(object):
         try:
             # Run the signature and if it gets matched, extract key information
             # from it and append it to the results container.
-            if current.run():
+            pretime = datetime.now()
+            data = current.run()
+            posttime = datetime.now()
+            timediff = posttime - pretime
+            self.results["statistics"]["signatures"].append({
+                "name": current.name,
+                "time": float("%d.%03d" % (timediff.seconds,
+                                         timediff.microseconds / 1000)),
+                })
+
+            if data:
                 log.debug("Analysis matched signature \"%s\"", current.name)
                 # Return information on the matched signature.
                 return current.as_result()
@@ -388,6 +407,8 @@ class RunSignatures(object):
         """Run evented signatures."""
         # This will contain all the matched signatures.
         matched = []
+
+        stats = { } 
 
         Database().set_statistics_time(self.task_id, SIGNATURES_STARTED)
         complete_list = list_plugins(group="signatures")
@@ -404,6 +425,7 @@ class RunSignatures(object):
         if evented_list:
             log.debug("Running %u evented signatures", len(evented_list))
             for sig in evented_list:
+                stats[sig.name] = timedelta()
                 if sig == evented_list[-1]:
                     log.debug("\t `-- %s", sig.name)
                 else:
@@ -424,7 +446,11 @@ class RunSignatures(object):
 
                         result = None
                         try:
+                            pretime = datetime.now()
                             result = sig.on_call(call, proc)
+                            posttime = datetime.now()
+                            timediff = posttime - pretime
+                            stats[sig.name] += timediff
                         except NotImplementedError:
                             result = False
                         except:
@@ -450,7 +476,11 @@ class RunSignatures(object):
             # Call the stop method on all remaining instances.
             for sig in evented_list:
                 try:
+                    pretime = datetime.now()
                     result = sig.on_complete()
+                    posttime = datetime.now()
+                    timediff = posttime - pretime
+                    stats[sig.name] += timediff
                 except NotImplementedError:
                     continue
                 except:
@@ -465,6 +495,15 @@ class RunSignatures(object):
 
         # Link this into the results already at this point, so non-evented signatures can use it
         self.results["signatures"] = matched
+
+        # Add in statistics for evented signatures that took at least some time
+        for key, value in stats.iteritems():
+            if value:
+                self.results["statistics"]["signatures"].append({
+                    "name": key,
+                    "time": float("%d.%03d" % (timediff.seconds,
+                                             timediff.microseconds / 1000)),
+                    })
 
         # Compat loop for old-style (non evented) signatures.
         if complete_list:
@@ -634,7 +673,16 @@ class RunReporting:
         current.cfg = Config(cfg=current.conf_path)
 
         try:
+            pretime = datetime.now()
             current.run(self.results)
+            posttime = datetime.now()
+            timediff = posttime - pretime
+            self.results["statistics"]["reporting"].append({
+                "name": current.__class__.__name__,
+                "time": float("%d.%03d" % (timediff.seconds,
+                                         timediff.microseconds / 1000)),
+                })
+
             log.debug("Executed reporting module \"%s\"", current.__class__.__name__)
         except CuckooDependencyError as e:
             log.warning("The reporting module \"%s\" has missing dependencies: %s", current.__class__.__name__, e)

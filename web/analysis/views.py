@@ -40,31 +40,90 @@ fs = GridFS(results_db)
 
 TASK_LIMIT = 25
 
+
 # Used for displaying enabled config options in Django UI
 enabledconf = dict()
-for cfile in ["reporting", "processing"]:
+for cfile in ["reporting", "processing","auxiliary"]:
     curconf = Config(cfile)
     confdata = curconf.get_config()
     for item in confdata:
-        if confdata[item]["enabled"] == "yes":
-            enabledconf[item] = True
-        else:
-            enabledconf[item] = False
+        if confdata[item].has_key("enabled"):
+            if confdata[item]["enabled"] == "yes":
+                enabledconf[item] = True
+            else:
+                enabledconf[item] = False
 
-if settings.DISPLAY_IE_MARTIANS:
-    enabledconf["display_ie_martians"] = True 
-else:
-    enabledconf["display_ie_martians"] = False 
+def get_analysis_info(db, id=-1, task=None):
+    if not task:
+        task = db.view_task(id)
+    if not task:
+        return None
 
-if settings.DISPLAY_SHRIKE:
-    enabledconf["display_shrike"] = True
-else:
-    enabledconf["display_shrike"] = False
+    new = task.to_dict()
 
-if settings.DISPLAY_ET_PORTAL:
-    enabledconf["display_et_portal"] = True
-else:
-    enabledconf["display_et_portal"] = False
+    rtmp = results_db.analysis.find_one({"info.id": int(new["id"])},{"info": 1, "virustotal_summary": 1,"network.pcap_id":1, "info.custom":1, "info.shrike_msg":1, "malscore": 1, "malfamily": 1, "mlist_cnt": 1},sort=[("_id", pymongo.DESCENDING)])
+    stmp = results_db.suricata.find_one({"info.id": int(new["id"])},{"tls_cnt": 1, "alert_cnt": 1, "http_cnt": 1, "file_cnt": 1, "http_log_id": 1, "tls_log_id": 1, "alert_log_id": 1, "file_log_id": 1},sort=[("_id", pymongo.DESCENDING)])
+
+    if rtmp:
+        print rtmp
+        if new["category"] == "file":
+            if new["sample_id"]:
+                sample = db.view_sample(new["sample_id"])
+                if sample:
+                    new["sample"] = sample.to_dict()
+            filename = os.path.basename(new["target"])
+            new.update({"filename": filename})
+
+        if rtmp.has_key("virustotal_summary") and rtmp["virustotal_summary"]:
+            new["virustotal_summary"] = rtmp["virustotal_summary"]
+        if rtmp.has_key("mlist_cnt") and rtmp["mlist_cnt"]:
+            new["mlist_cnt"] = rtmp["mlist_cnt"]
+        if rtmp.has_key("network") and rtmp["network"].has_key("pcap_id") and rtmp["network"]["pcap_id"]:
+            new["pcap_id"] = rtmp["network"]["pcap_id"]
+        if rtmp.has_key("info") and rtmp["info"].has_key("custom") and rtmp["info"]["custom"]:
+            new["custom"] = rtmp["info"]["custom"]
+        if enabledconf.has_key("display_shrike") and enabledconf["display_shrike"] and rtmp.has_key("info") and rtmp["info"].has_key("shrike_msg") and rtmp["info"]["shrike_msg"]:
+            new["shrike_msg"] = rtmp["info"]["shrike_msg"]
+        if rtmp.has_key("suri_tls_cnt") and rtmp["suri_tls_cnt"]:
+            new["suri_tls_cnt"] = rtmp["suri_tls_cnt"]
+        if rtmp.has_key("suri_alert_cnt") and rtmp["suri_alert_cnt"]:
+            new["suri_alert_cnt"] = rtmp["suri_alert_cnt"]
+        if rtmp.has_key("suri_file_cnt") and rtmp["suri_file_cnt"]:
+            new["suri_file_cnt"] = rtmp["suri_file_cnt"]
+        if rtmp.has_key("suri_http_cnt") and rtmp["suri_http_cnt"]:
+            new["suri_http_cnt"] = rtmp["suri_http_cnt"]
+        if rtmp.has_key("mlist_cnt") and rtmp["mlist_cnt"]:
+            new["mlist_cnt"] = rtmp["mlist_cnt"]
+        if rtmp.has_key("malscore"):
+            new["malscore"] = rtmp["malscore"]
+        if rtmp.has_key("malfamily"):
+            new["malfamily"] = rtmp["malfamily"]
+
+        if stmp:
+            if stmp.has_key("tls_cnt") and stmp["tls_cnt"]:
+                new["suri_tls_cnt"] = stmp["tls_cnt"]
+            if stmp.has_key("alert_cnt") and stmp["alert_cnt"]:
+                new["suri_alert_cnt"] = stmp["alert_cnt"]
+            if stmp.has_key("file_cnt") and stmp["file_cnt"]:
+                new["suri_file_cnt"] = stmp["file_cnt"]
+            if stmp.has_key("http_cnt") and stmp["http_cnt"]:
+                new["suri_http_cnt"] = stmp["http_cnt"]
+            if stmp.has_key("http_log_id") and stmp["http_log_id"]:
+                new["suricata_http_log_id"] = stmp["http_log_id"]
+            if stmp.has_key("tls_log_id") and stmp["tls_log_id"]:
+                new["suricata_tls_log_id"] = stmp["tls_log_id"]
+            if stmp.has_key("alert_log_id") and stmp["alert_log_id"]:
+                new["suricata_alert_log_id"] = stmp["alert_log_id"]
+            if  stmp.has_key("file_log_id") and stmp["file_log_id"]:
+                new["suricata_file_log_id"] = stmp["file_log_id"]
+
+
+        if settings.MOLOCH_ENABLED:
+            if settings.MOLOCH_BASE[-1] != "/":
+                settings.MOLOCH_BASE = settings.MOLOCH_BASE + "/"
+            new["moloch_url"] = settings.MOLOCH_BASE + "?date=-1&expression=tags" + quote("\x3d\x3d\x22%s\x3a%s\x22" % (settings.MOLOCH_NODE,new["id"]),safe='')
+
+    return new
 
 @require_safe
 def index(request, page=1):
@@ -102,74 +161,22 @@ def index(request, page=1):
 
     if tasks_files:
         for task in tasks_files:
-            new = task.to_dict()
+            new = get_analysis_info(db, task=task)
             if new["id"] == first_file:
                 paging["show_file_next"] = "hide"
             if page <= 1:
                 paging["show_file_prev"] = "hide"
-            new["sample"] = db.view_sample(new["sample_id"]).to_dict()
-
-            filename = os.path.basename(new["target"])
-            new.update({"filename": filename})
 
             if db.view_errors(task.id):
                 new["errors"] = True
 
-            rtmp = results_db.analysis.find_one({"info.id": int(new["id"])},{"virustotal_summary": 1,"network.pcap_id":1, "info.custom":1, "info.shrike_msg":1,"malscore": 1, "malfamily": 1},sort=[("_id", pymongo.DESCENDING)])
-            stmp = results_db.suricata.find_one({"info.id": int(new["id"])},{"tls_cnt": 1, "alert_cnt": 1, "http_cnt": 1, "file_cnt": 1, "http_log_id": 1, "tls_log_id": 1, "alert_log_id": 1, "file_log_id": 1},sort=[("_id", pymongo.DESCENDING)])
-            if rtmp:
-                if rtmp.has_key("virustotal_summary") and rtmp["virustotal_summary"]:
-                    new["virustotal_summary"] = rtmp["virustotal_summary"]
-                if rtmp.has_key("mlist_cnt") and rtmp["mlist_cnt"]:
-                    new["mlist_cnt"] = rtmp["mlist_cnt"]
-                if rtmp.has_key("network") and rtmp["network"].has_key("pcap_id") and rtmp["network"]["pcap_id"]:
-                    new["pcap_id"] = rtmp["network"]["pcap_id"]
-                if rtmp.has_key("info") and rtmp["info"].has_key("custom") and rtmp["info"]["custom"]:
-                    new["custom"] = rtmp["info"]["custom"]
-                if settings.DISPLAY_SHRIKE and rtmp.has_key("info") and rtmp["info"].has_key("shrike_msg") and rtmp["info"]["shrike_msg"]:
-                    new["shrike_msg"] = rtmp["info"]["shrike_msg"]
-                if rtmp.has_key("suri_tls_cnt") and rtmp["suri_tls_cnt"]:
-                    new["suri_tls_cnt"] = rtmp["suri_tls_cnt"]
-                if rtmp.has_key("suri_alert_cnt") and rtmp["suri_alert_cnt"]:
-                    new["suri_alert_cnt"] = rtmp["suri_alert_cnt"]
-                if rtmp.has_key("suri_file_cnt") and rtmp["suri_file_cnt"]:
-                    new["suri_file_cnt"] = rtmp["suri_file_cnt"]
-                if rtmp.has_key("suri_http_cnt") and rtmp["suri_http_cnt"]:
-                    new["suri_http_cnt"] = rtmp["suri_http_cnt"]
-                if rtmp.has_key("malscore"):
-                    new["malscore"] = rtmp["malscore"]
-                if rtmp.has_key("malfamily"):
-                    new["malfamily"] = rtmp["malfamily"]
-
-            if settings.MOLOCH_ENABLED:
-                if settings.MOLOCH_BASE[-1] != "/":
-                    settings.MOLOCH_BASE = settings.MOLOCH_BASE + "/"
-                new["moloch_url"] = settings.MOLOCH_BASE + "?date=-1&expression=tags" + quote("\x3d\x3d\x22%s\x3a%s\x22" % (settings.MOLOCH_NODE,new["id"]),safe='')
-                new["moloch_base"] = settings.MOLOCH_BASE
-            if stmp:
-                if stmp.has_key("tls_cnt") and stmp["tls_cnt"]:
-                    new["suri_tls_cnt"] = stmp["tls_cnt"]
-                if stmp.has_key("alert_cnt") and stmp["alert_cnt"]:
-                    new["suri_alert_cnt"] = stmp["alert_cnt"]
-                if stmp.has_key("file_cnt") and stmp["file_cnt"]:
-                    new["suri_file_cnt"] = stmp["file_cnt"]
-                if stmp.has_key("http_cnt") and stmp["http_cnt"]:
-                    new["suri_http_cnt"] = stmp["http_cnt"]
-                if stmp.has_key("http_log_id") and stmp["http_log_id"]:
-                    new["suricata_http_log_id"] = stmp["http_log_id"]
-                if stmp.has_key("tls_log_id") and stmp["tls_log_id"]:
-                    new["suricata_tls_log_id"] = stmp["tls_log_id"]
-                if stmp.has_key("alert_log_id") and stmp["alert_log_id"]:
-                    new["suricata_alert_log_id"] = stmp["alert_log_id"]
-                if  stmp.has_key("file_log_id") and stmp["file_log_id"]:
-                    new["suricata_file_log_id"] = stmp["file_log_id"]
             analyses_files.append(new)
     else:
         paging["show_file_next"] = "hide"
 
     if tasks_urls:
         for task in tasks_urls:
-            new = task.to_dict()
+            new = get_analysis_info(db, task=task)
             if new["id"] == first_url:
                 paging["show_url_next"] = "hide"
             if page <= 1:
@@ -178,56 +185,6 @@ def index(request, page=1):
             if db.view_errors(task.id):
                 new["errors"] = True
 
-            rtmp = results_db.analysis.find_one({"info.id": int(new["id"])},{"virustotal_summary": 1, "network.pcap_id":1, "info.custom":1, "info.shrike_msg":1,"signatures":1,"malscore": 1,"malfamily": 1},sort=[("_id", pymongo.DESCENDING)])
-            stmp = results_db.suricata.find_one({"info.id": int(new["id"])},{"tls_cnt": 1, "alert_cnt": 1, "http_cnt": 1, "file_cnt": 1, "http_log_id": 1, "tls_log_id": 1, "alert_log_id": 1, "file_log_id": 1},sort=[("_id", pymongo.DESCENDING)])
-            if rtmp:
-                if rtmp.has_key("virustotal_summary") and rtmp["virustotal_summary"]:
-                    new["virustotal_summary"] = rtmp["virustotal_summary"]
-                if rtmp.has_key("network") and rtmp["network"].has_key("pcap_id") and rtmp["network"]["pcap_id"]:
-                    new["pcap_id"] = rtmp["network"]["pcap_id"]
-                if rtmp.has_key("info") and rtmp["info"].has_key("custom") and rtmp["info"]["custom"]:
-                    new["custom"] = rtmp["info"]["custom"]
-                if settings.DISPLAY_SHRIKE and rtmp.has_key("info") and rtmp["info"].has_key("shrike_msg") and rtmp["info"]["shrike_msg"]:
-                    new["shrike_msg"] = rtmp["info"]["shrike_msg"]
-                if settings.DISPLAY_IE_MARTIANS and rtmp.has_key("signatures"):
-                    for entry in rtmp["signatures"]:
-                        if entry["name"] == "ie_martian_children":
-                            new["mlist_cnt"] = len(entry["data"])                        
-                if rtmp.has_key("suri_tls_cnt") and rtmp["suri_tls_cnt"]:
-                    new["suri_tls_cnt"] = rtmp["suri_tls_cnt"]
-                if rtmp.has_key("suri_alert_cnt") and rtmp["suri_alert_cnt"]:
-                    new["suri_alert_cnt"] = rtmp["suri_alert_cnt"]
-                if rtmp.has_key("suri_file_cnt") and rtmp["suri_file_cnt"]:
-                    new["suri_file_cnt"] = rtmp["suri_file_cnt"]
-                if rtmp.has_key("suri_http_cnt") and rtmp["suri_http_cnt"]:
-                    new["suri_http_cnt"] = rtmp["suri_http_cnt"]
-                if rtmp.has_key("malscore"):
-                    new["malscore"] = rtmp["malscore"]
-                if rtmp.has_key("malfamily"):
-                    new["malfamily"] = rtmp["malfamily"]
-
-            if settings.MOLOCH_ENABLED:
-                if settings.MOLOCH_BASE[-1] != "/":
-                    settings.MOLOCH_BASE = settings.MOLOCH_BASE + "/"
-                new["moloch_url"] = settings.MOLOCH_BASE + "?date=-1&expression=tags" + quote("\x3d\x3d\x22%s\x3a%s\x22" % (settings.MOLOCH_NODE,new["id"]),safe='')
-                new["moloch_base"] = settings.MOLOCH_BASE
-            if stmp:
-                if stmp.has_key("tls_cnt") and stmp["tls_cnt"]:
-                    new["suri_tls_cnt"] = stmp["tls_cnt"]
-                if stmp.has_key("alert_cnt") and stmp["alert_cnt"]:
-                    new["suri_alert_cnt"] = stmp["alert_cnt"]
-                if stmp.has_key("file_cnt") and stmp["file_cnt"]:
-                    new["suri_file_cnt"] = stmp["file_cnt"]
-                if stmp.has_key("http_cnt") and stmp["http_cnt"]:
-                    new["suri_http_cnt"] = stmp["http_cnt"]
-                if stmp.has_key("http_log_id") and stmp["http_log_id"]:
-                    new["suricata_http_log_id"] = stmp["http_log_id"]
-                if stmp.has_key("tls_log_id") and stmp["tls_log_id"]:
-                    new["suricata_tls_log_id"] = stmp["tls_log_id"]
-                if stmp.has_key("alert_log_id") and stmp["alert_log_id"]:
-                    new["suricata_alert_log_id"] = stmp["alert_log_id"]
-                if  stmp.has_key("file_log_id") and stmp["file_log_id"]:
-                    new["suricata_file_log_id"] = stmp["file_log_id"]
             analyses_urls.append(new)
     else:
         paging["show_url_next"] = "hide"
@@ -591,6 +548,8 @@ def search_behavior(request, task_id):
 
 @require_safe
 def report(request, task_id):
+    db = Database()
+
     report = results_db.analysis.find_one({"info.id": int(task_id)}, sort=[("_id", pymongo.DESCENDING)])
     suricata = results_db.suricata.find_one({"info.id": int(task_id)}, sort=[("_id", pymongo.DESCENDING)])
     if not report:
@@ -626,6 +585,7 @@ def report(request, task_id):
         iplookups = dict()
 
     similar = []
+    similarinfo = []
     if enabledconf["malheur"]:
         malheur_file = os.path.join(CUCKOO_ROOT, "storage", "malheur", "malheur.txt")
         classes = dict()
@@ -650,6 +610,10 @@ def report(request, task_id):
                             classes[classname].append(addval)
             if ourclassname:
                 similar = classes[ourclassname]
+                for sim in similar:
+                    siminfo = get_analysis_info(db, id=int(sim["id"]))
+                    if siminfo:
+                        similarinfo.append(siminfo)
         except:
             pass
 
@@ -658,7 +622,7 @@ def report(request, task_id):
                               "domainlookups": domainlookups,
                               "iplookups": iplookups,
                               "suricata": suricata,
-                              "similar": similar,
+                              "similar": similarinfo,
                               "settings": settings,
                               "config": enabledconf},
                              context_instance=RequestContext(request))
@@ -917,65 +881,9 @@ def search(request):
         db = Database()
         analyses = []
         for result in records:
-            new = db.view_task(result["info"]["id"])
-
+            new = get_analysis_info(db, id=int(result["info"]["id"]))
             if not new:
                 continue
-
-            new = new.to_dict()
-
-            if new["category"] == "file":
-                if new["sample_id"]:
-                    sample = db.view_sample(new["sample_id"])
-                    if sample:
-                        new["sample"] = sample.to_dict()
-                filename = os.path.basename(new["target"])
-                new.update({"filename": filename})
-            rtmp = results_db.analysis.find_one({"info.id": int(new["id"])},{"virustotal_summary": 1, "network.pcap_id":1, "info.custom":1, "info.shrike_msg":1,"signatures":1,"malscore": 1,"malfamily": 1,},sort=[("_id", pymongo.DESCENDING)])
-            stmp = results_db.suricata.find_one({"info.id": int(new["id"])},{"tls_cnt": 1, "alert_cnt": 1, "http_cnt": 1, "file_cnt": 1, "http_log_id": 1, "tls_log_id": 1, "alert_log_id": 1, "file_log_id": 1},sort=[("_id", pymongo.DESCENDING)])
-
-            if rtmp:
-                if rtmp.has_key("virustotal_summary") and rtmp["virustotal_summary"]:
-                    new["virustotal_summary"] = rtmp["virustotal_summary"]
-                if rtmp.has_key("mlist_cnt") and rtmp["mlist_cnt"]:
-                    new["mlist_cnt"] = rtmp["mlist_cnt"]
-                if rtmp.has_key("network") and rtmp["network"].has_key("pcap_id") and rtmp["network"]["pcap_id"]:
-                    new["pcap_id"] = rtmp["network"]["pcap_id"]
-                if rtmp.has_key("info") and rtmp["info"].has_key("custom") and rtmp["info"]["custom"]:
-                    new["custom"] = rtmp["info"]["custom"]
-                if settings.DISPLAY_SHRIKE and rtmp.has_key("info") and rtmp["info"].has_key("shrike_msg") and rtmp["info"]["shrike_msg"]:
-                    new["shrike_msg"] = rtmp["info"]["shrike_msg"]
-                if settings.DISPLAY_IE_MARTIANS and rtmp.has_key("signatures"):
-                    for entry in rtmp["signatures"]:
-                        if entry["name"] == "ie_martian_children":
-                            new["mlist_cnt"] = len(entry["data"])
-                if rtmp.has_key("malscore"):
-                    new["malscore"] = rtmp["malscore"]
-                if rtmp.has_key("malfamily") and rtmp["malfamily"]:
-                    new["malfamily"] = rtmp["malfamily"]
-
-            if settings.MOLOCH_ENABLED:
-                if settings.MOLOCH_BASE[-1] != "/":
-                    settings.MOLOCH_BASE = settings.MOLOCH_BASE + "/"
-                new["moloch_url"] = settings.MOLOCH_BASE + "?date=-1&expression=tags" + quote("\x3d\x3d\x22%s\x3a%s\x22" % (settings.MOLOCH_NODE,new["id"]),safe='')
-                new["moloch_base"] = settings.MOLOCH_BASE
-            if stmp:
-                if stmp.has_key("tls_cnt") and stmp["tls_cnt"]:
-                    new["suri_tls_cnt"] = stmp["tls_cnt"]
-                if stmp.has_key("alert_cnt") and stmp["alert_cnt"]:
-                    new["suri_alert_cnt"] = stmp["alert_cnt"]
-                if stmp.has_key("file_cnt") and stmp["file_cnt"]:
-                    new["suri_file_cnt"] = stmp["file_cnt"]
-                if stmp.has_key("http_cnt") and stmp["http_cnt"]:
-                    new["suri_http_cnt"] = stmp["http_cnt"]
-                if stmp.has_key("http_log_id") and stmp["http_log_id"]:
-                    new["suricata_http_log_id"] = stmp["http_log_id"]
-                if stmp.has_key("tls_log_id") and stmp["tls_log_id"]:
-                    new["suricata_tls_log_id"] = stmp["tls_log_id"]
-                if stmp.has_key("alert_log_id") and stmp["alert_log_id"]:
-                    new["suricata_alert_log_id"] = stmp["alert_log_id"]
-                if  stmp.has_key("file_log_id") and stmp["file_log_id"]:
-                    new["suricata_file_log_id"] = stmp["file_log_id"]
             analyses.append(new)
         return render_to_response("analysis/search.html",
                                   {"analyses": analyses,
