@@ -60,6 +60,10 @@ def get_analysis_info(db, id=-1, task=None):
         return None
 
     new = task.to_dict()
+    if new["category"] == "file":
+        new["sample"] = db.view_sample(new["sample_id"]).to_dict()
+        filename = os.path.basename(new["target"])
+        new.update({"filename": filename})
 
     rtmp = results_db.analysis.find_one({"info.id": int(new["id"])},{"info": 1, "virustotal_summary": 1,"network.pcap_id":1, "info.custom":1, "info.shrike_msg":1, "malscore": 1, "malfamily": 1, "mlist_cnt": 1},sort=[("_id", pymongo.DESCENDING)])
     stmp = results_db.suricata.find_one({"info.id": int(new["id"])},{"tls_cnt": 1, "alert_cnt": 1, "http_cnt": 1, "file_cnt": 1, "http_log_id": 1, "tls_log_id": 1, "alert_log_id": 1, "file_log_id": 1},sort=[("_id", pymongo.DESCENDING)])
