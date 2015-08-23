@@ -9,13 +9,21 @@
             </tr>
             {% for p in analysis.network.dns %}
                 <tr>
-                <td><a href="https://www.virustotal.com/en/domain/{{p.request}}/information/">{{p.request}}</a></td>
+                <td><a href="https://www.virustotal.com/en/domain/{{p.request}}/information/">{{p.request}}</a>
+                    {% if config.display_et_portal %}
+                        <a href="https://portal.emergingthreats.net/search?q={{p.request}}" target="_blank"><span class="mono">IQRisk</span></a>
+                    {% endif %}
+                    </td>
                     <td>
                         {% for a in p.answers %}
-                            {{a.type}} <a href="https://www.virustotal.com/en/ip-address/{{a.data|linebreaksbr}}/information/">{{a.data|linebreaksbr}}</a>{% if not forloop.last %}<br/>{% endif %}
+                            {{a.type}} <a href="https://www.virustotal.com/en/ip-address/{{a.data|linebreaksbr}}/information/">{{a.data|linebreaksbr}}</a> <a href="https://portal.emergingthreats.net/search?q={{a.data|linebreaksbr}}" target="_blank"><span class="mono">IQRisk</span></a>{% if not forloop.last %}<br/>{% endif %}
                         {% endfor %}
                     </td>
-                    <td><a href="https://www.virustotal.com/en/ip-address/{{ domainlookups|get_item:p.request }}/information/">{{ domainlookups|get_item:p.request }}</a></td>
+                    <td><a href="https://www.virustotal.com/en/ip-address/{{ domainlookups|get_item:p.request }}/information/">{{ domainlookups|get_item:p.request }}</a>
+                    {% if config.display_et_portal and domainlookups|get_item:p.request %}
+                        <a href="https://portal.emergingthreats.net/search?q={{domainlookups|get_item:p.request}}" target="_blank"><span class="mono">IQRisk</span></a>
+                    {% endif %}
+                    </td>
                 </tr>
             {% endfor %}
         </table>

@@ -93,6 +93,16 @@
                         {% endif %}
                         </td>
                     </tr>
+                    <tr>
+                        <th>VirusTotal</th>
+                        <td><a href="https://www.virustotal.com/en/file/{{file.file_info.sha256}}/analysis/">Search for Analysis</a></td>
+                    </tr>
+                    {% if config.display_et_portal %}
+                    <tr>
+                        <th>IQRisk</th>
+                        <td><a href="https://portal.emergingthreats.net/search?q={{file.md5}}" target="_blank"><span class="mono">IQRisk</span></a></td>
+                    </tr>
+
                     {% if file.object_id %}
                     <tr>
                         <th></th>

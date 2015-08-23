@@ -129,7 +129,9 @@
                         {% endif %}
                         <td>
                             {% if analysis.pcap_id %}
-                                <a href="{% url "analysis.views.file" "pcap" analysis.pcap_id %}" target="_blank"><span class="mono">PCAP</span></a>
+                                {% if config.mongodb %}
+                                    <a href="{% url "analysis.views.mongo_file" "pcap" analysis.pcap_id %}" target="_blank"><span class="mono">PCAP</span></a>
+                                {% endif %}
                             {% else %}
                                 <span class="mono">None</span>
                             {% endif %}
@@ -341,7 +343,9 @@
                         {% endif %}
                         <td>
                             {% if analysis.pcap_id %}
-                                <a href="{% url "analysis.views.file" "pcap" analysis.pcap_id %}" target="_blank"><span class="mono">PCAP</span></a>
+                                {% if config.mongodb %}
+                                    <a href="{% url "analysis.views.mongo_file" "pcap" analysis.pcap_id %}" target="_blank"><span class="mono">PCAP</span></a>
+                                {% endif %}
                             {% else %}
                                 <span class="mono">None</span>
                             {% endif %}
