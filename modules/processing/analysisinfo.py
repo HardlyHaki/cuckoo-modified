@@ -115,4 +115,5 @@ class AnalysisInfo(Processing):
             parent_id=self.task["parent_id"],
             options=self.get_options(self.task["options"]),
             timeout=self.had_timeout()
+            #options=self.task["options"]
         )

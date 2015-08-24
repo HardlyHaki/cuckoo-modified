@@ -23,6 +23,7 @@
     <Content Include="analyzer\windows\bin\loader_x64.exe" />
     <Content Include="analyzer\windows\dll\cuckoomon.dll" />
     <Content Include="analyzer\windows\dll\cuckoomon_x64.dll" />
+    <Content Include="conf\api.conf" />
     <Content Include="conf\auxiliary.conf" />
     <Content Include="conf\cuckoo.conf" />
     <Content Include="conf\esx.conf" />
@@ -33,6 +34,8 @@
     <Content Include="conf\reporting.conf" />
     <Content Include="conf\virtualbox.conf" />
     <Content Include="conf\vmware.conf" />
+    <Content Include="conf\vsphere.conf" />
+    <Content Include="conf\xenserver.conf" />
     <Content Include="data\yara\binaries\embedded.yar" />
     <Content Include="data\yara\binaries\shellcodes.yar" />
     <Content Include="data\yara\binaries\vmdetect.yar" />
@@ -192,6 +195,7 @@
     <Compile Include="modules\feeds\bad_ssl_certs.py" />
     <Compile Include="modules\feeds\__init__.py" />
     <Compile Include="modules\reporting\elasticsearchdb.py" />
+    <Compile Include="modules\reporting\maec41.py" />
     <Compile Include="modules\reporting\malheur.py" />
     <Compile Include="modules\processing\suricata.py" />
     <Compile Include="modules\processing\cif.py" />
@@ -220,7 +224,6 @@
       <SubType>Code</SubType>
     </Compile>
     <Compile Include="utils\dist.py" />
-    <Compile Include="utils\health_statistics.py" />
     <Compile Include="utils\process.py" />
     <Compile Include="utils\listdump.py" />
     <Compile Include="utils\stats.py" />
@@ -229,6 +232,9 @@
     <Compile Include="utils\__init__.py">
       <SubType>Code</SubType>
     </Compile>
+    <Compile Include="web\api\urls.py" />
+    <Compile Include="web\api\views.py" />
+    <Compile Include="web\api\__init__.py" />
     <Compile Include="web\manage.py" />
     <Compile Include="analyzer\windows\analyzer.py" />
     <Compile Include="analyzer\windows\lib\__init__.py" />
@@ -366,9 +372,6 @@
     <Compile Include="web\dashboard\urls.py" />
     <Compile Include="web\dashboard\views.py" />
     <Compile Include="web\dashboard\__init__.py" />
-    <Compile Include="web\statistics\urls.py" />
-    <Compile Include="web\statistics\views.py" />
-    <Compile Include="web\statistics\__init__.py" />
     <Compile Include="web\submission\urls.py" />
     <Compile Include="web\submission\views.py" />
     <Compile Include="web\submission\__init__.py" />
@@ -380,6 +383,7 @@
     <Content Include="web\templates\analysis\behavior\_search.html" />
     <Content Include="web\templates\analysis\behavior\_search_results.html" />
     <Content Include="web\templates\analysis\comments\index.html" />
+    <Content Include="web\templates\analysis\network\_smtp.html" />
     <Content Include="web\templates\analysis\statistics\index.html" />
     <Content Include="web\templates\analysis\similar\index.html" />
     <Content Include="web\templates\analysis\network\_cif.html" />
@@ -540,6 +544,7 @@
     <Folder Include="web" />
     <Folder Include="web\analysis" />
     <Folder Include="web\analysis\templatetags" />
+    <Folder Include="web\api\" />
     <Folder Include="web\dashboard" />
     <Folder Include="web\static\" />
     <Folder Include="web\static\css" />
@@ -547,7 +552,6 @@
     <Folder Include="web\static\graphic" />
     <Folder Include="web\static\img" />
     <Folder Include="web\static\js" />
-    <Folder Include="web\statistics\" />
     <Folder Include="web\submission" />
     <Folder Include="web\templates" />
     <Folder Include="web\templates\analysis" />

@@ -1,6 +1,5 @@
 import json
 import os
-import pymongo
 import re
 import socket
 import sys
@@ -19,7 +18,6 @@ from django.template import RequestContext
 from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_safe
 from ratelimit.decorators import ratelimit
-from gridfs import GridFS
 from StringIO import StringIO
 from zipfile import ZipFile, ZIP_STORED
 from bson.objectid import ObjectId
@@ -28,19 +26,35 @@ sys.path.append(settings.CUCKOO_PATH)
 from lib.cuckoo.common.config import Config
 from lib.cuckoo.common.constants import CUCKOO_ROOT, CUCKOO_VERSION
 from lib.cuckoo.common.utils import store_temp_file, delete_folder
+from lib.cuckoo.common.quarantine import unquarantine
 from lib.cuckoo.core.database import Database, Task
 from lib.cuckoo.core.database import TASK_RUNNING, TASK_REPORTED
-
-# DB variables
-db = Database()
-results_db = pymongo.MongoClient(settings.MONGO_HOST,
-                                 settings.MONGO_PORT)[settings.MONGO_DB]
-fs = GridFS(results_db)
 
 # Config variables
 apiconf = Config("api")
 limiter = apiconf.api.get("ratelimit")
 repconf = Config("reporting")
+
+if repconf.mongodb.enabled:
+    import pymongo
+    from gridfs import GridFS
+    results_db = pymongo.MongoClient(
+                     settings.MONGO_HOST,
+                     settings.MONGO_PORT
+                 )[settings.MONGO_DB]
+    fs = GridFS(results_db)
+
+if repconf.elasticsearchdb.enabled:
+    from elasticsearch import Elasticsearch
+    es = Elasticsearch(
+         hosts = [{
+             "host": repconf.elasticsearchdb.host,
+             "port": repconf.elasticsearchdb.port,
+         }],
+         timeout = 60
+     )
+
+db = Database()
 
 # Default rate limit variables
 rateblock = False
@@ -146,6 +160,7 @@ def tasks_create_file(request):
             return jsonize(resp, response=True)
         resp["error"] = False
         # Parse potential POST options (see submission/views.py)
+        quarantine = request.POST.get("quarantine", "")
         package = request.POST.get("package", "")
         timeout = force_int(request.POST.get("timeout"))
         priority = force_int(request.POST.get("priority"))
@@ -217,9 +232,20 @@ def tasks_create_file(request):
                     resp = {"error": True,
                             "error_value": "File size exceeds API limit"}
                     return jsonize(resp, response=True)
-                path = store_temp_file(sample.read(), sample.name)
+
+                tmp_path = store_temp_file(sample.read(), sample.name)
+
+                if quarantine:
+                    path = unquarantine(tmp_path)
+                    try:
+                        os.remove(tmp_path)
+                    except:
+                        pass
+                else:
+                    path = tmp_path
+
                 for entry in task_machines:
-                    task_id = db.add_path(file_path=path,
+                    task_ids_new = db.demux_sample_and_add_to_db(file_path=path,
                                           package=package,
                                           timeout=timeout,
                                           priority=priority,
@@ -236,8 +262,8 @@ def tasks_create_file(request):
                                           shrike_sid=shrike_sid,
                                           shrike_refer=shrike_refer
                                           )
-                    if task_id:
-                        task_ids.append(task_id)
+                    if task_ids_new:
+                        task_ids.extend(task_ids_new)
         else:
             # Grab the first file
             sample = request.FILES.getlist("file")[0]
@@ -252,9 +278,19 @@ def tasks_create_file(request):
             if len(request.FILES.getlist("file")) > 1:
                 resp["warning"] = ("Multi-file API submissions disabled - "
                                    "Accepting first file")
-            path = store_temp_file(sample.read(), sample.name)
+            tmp_path = store_temp_file(sample.read(), sample.name)
+
+            if quarantine:
+                path = unquarantine(tmp_path)
+                try:
+                    os.remove(tmp_path)
+                except:
+                    pass
+            else:
+                path = tmp_path
+
             for entry in task_machines:
-                task_id = db.add_path(file_path=path,
+                task_ids_new = db.demux_sample_and_add_to_db(file_path=path,
                                       package=package,
                                       timeout=timeout,
                                       priority=priority,
@@ -271,8 +307,8 @@ def tasks_create_file(request):
                                       shrike_sid=shrike_sid,
                                       shrike_refer=shrike_refer
                                       )
-                if task_id:
-                    task_ids.append(task_id)
+                if task_ids_new:
+                    task_ids.extend(task_ids_new)
                     
         if len(task_ids) > 0:
             resp["task_ids"] = task_ids
@@ -647,66 +683,141 @@ def ext_tasks_search(request):
 
     if option and dataarg:
         records = ""
-        if option == "name":
-            records = results_db.analysis.find({"target.file.name": {"$regex": dataarg, "$options": "-i"}}).sort([["_id", -1]])
-        elif option == "type":
-            records = results_db.analysis.find({"target.file.type": {"$regex": dataarg, "$options": "-i"}}).sort([["_id", -1]])
-        elif option == "string":
-            records = results_db.analysis.find({"strings" : {"$regex" : dataarg, "$options" : "-1"}}).sort([["_id", -1]])
-        elif option == "ssdeep":
-            records = results_db.analysis.find({"target.file.ssdeep": {"$regex": dataarg, "$options": "-i"}}).sort([["_id", -1]])
-        elif option == "crc32":
-            records = results_db.analysis.find({"target.file.crc32": dataarg}).sort([["_id", -1]])
-        elif option == "file":
-            records = results_db.analysis.find({"behavior.summary.files": {"$regex": dataarg, "$options": "-i"}}).sort([["_id", -1]])
-        elif option == "command":
-            records = results_db.analysis.find({"behavior.summary.executed_commands": {"$regex": dataarg, "$options": "-i"}}).sort([["_id", -1]])
-        elif option == "resolvedapi":
-            records = results_db.analysis.find({"behavior.summary.resolved_apis": {"$regex": dataarg, "$options": "-i"}}).sort([["_id", -1]])
-        elif option == "key":
-            records = results_db.analysis.find({"behavior.summary.keys": {"$regex": dataarg, "$options": "-i"}}).sort([["_id", -1]])
-        elif option == "mutex":
-            records = results_db.analysis.find({"behavior.summary.mutexes": {"$regex": dataarg, "$options": "-i"}}).sort([["_id", -1]])
-        elif option == "domain":
-            records = results_db.analysis.find({"network.domains.domain": {"$regex": dataarg, "$options": "-i"}}).sort([["_id", -1]])
-        elif option == "ip":
-            records = results_db.analysis.find({"network.hosts.ip": dataarg}).sort([["_id", -1]])
-        elif option == "signature":
-            records = results_db.analysis.find({"signatures.description": {"$regex": dataarg, "$options": "-i"}}).sort([["_id", -1]])
-        elif option == "signame":
-            records = results_db.analysis.find({"signatures.name": {"$regex": dataarg, "$options": "-i"}}).sort([["_id", -1]])
-        elif option == "url":
-            records = results_db.analysis.find({"target.url": dataarg}).sort([["_id", -1]])
-        elif option == "imphash":
-            records = results_db.analysis.find({"static.pe_imphash": dataarg}).sort([["_id", -1]])
-        elif option == "surialert":
-            records = results_db.analysis.find({"suricata.alerts.signature": {"$regex" : dataarg, "$options" : "-i"}}).sort([["_id", -1]])
-        elif option == "surihttp":
-            records = results_db.analysis.find({"suricata.http": {"$regex" : dataarg, "$options" : "-i"}}).sort([["_id", -1]])
-        elif option == "suritls":
-            records = results_db.analysis.find({"suricata.tls": {"$regex" : dataarg, "$options" : "-i"}}).sort([["_id", -1]])
-        elif option == "clamav":
-            records = results_db.analysis.find({"target.file.clamav": {"$regex": dataarg, "$options": "-i"}}).sort([["_id", -1]])
-        elif option == "yaraname":
-            records = results_db.analysis.find({"target.file.yara.name": {"$regex": dataarg, "$options": "-i"}}).sort([["_id", -1]])
-        elif option == "procmemyara":
-            records = results_db.analysis.find({"procmemory.yara.name": {"$regex": dataarg, "$options": "-i"}}).sort([["_id", -1]])
-        elif option == "virustotal":
-            records = results_db.analysis.find({"virustotal.results.sig": {"$regex": dataarg, "$options": "-i"}}).sort([["_id", -1]])
-        elif option == "comment":
-            records = results_db.analysis.find({"info.comments.Data": {"$regex": dataarg, "$options": "-i"}}).sort([["_id", -1]])
-        elif option == "md5":
-            records = results_db.analysis.find({"target.file.md5": dataarg}).sort([["_id", -1]])
-        elif option == "sha1":
-            records = results_db.analysis.find({"target.file.sha1": dataarg}).sort([["_id", -1]])
-        elif option == "sha256":
-            records = results_db.analysis.find({"target.file.sha256": dataarg}).sort([["_id", -1]])
-        elif option == "sha512":
-            records = results_db.analysis.find({"target.file.sha512": dataarg}).sort([["_id", -1]])
-        else:
-            resp = {"error": True,
-                    "error_value": "Invalid Option. '%s' is not a valid option." % option}
-            return jsonize(resp, response=True)
+        if repconf.mongodb.enabled:
+            if option == "name":
+                records = results_db.analysis.find({"target.file.name": {"$regex": dataarg, "$options": "-i"}}).sort([["_id", -1]])
+            elif option == "type":
+                records = results_db.analysis.find({"target.file.type": {"$regex": dataarg, "$options": "-i"}}).sort([["_id", -1]])
+            elif option == "string":
+                records = results_db.analysis.find({"strings" : {"$regex" : dataarg, "$options" : "-1"}}).sort([["_id", -1]])
+            elif option == "ssdeep":
+                records = results_db.analysis.find({"target.file.ssdeep": {"$regex": dataarg, "$options": "-i"}}).sort([["_id", -1]])
+            elif option == "crc32":
+                records = results_db.analysis.find({"target.file.crc32": dataarg}).sort([["_id", -1]])
+            elif option == "file":
+                records = results_db.analysis.find({"behavior.summary.files": {"$regex": dataarg, "$options": "-i"}}).sort([["_id", -1]])
+            elif option == "command":
+                records = results_db.analysis.find({"behavior.summary.executed_commands": {"$regex": dataarg, "$options": "-i"}}).sort([["_id", -1]])
+            elif option == "resolvedapi":
+                records = results_db.analysis.find({"behavior.summary.resolved_apis": {"$regex": dataarg, "$options": "-i"}}).sort([["_id", -1]])
+            elif option == "key":
+                records = results_db.analysis.find({"behavior.summary.keys": {"$regex": dataarg, "$options": "-i"}}).sort([["_id", -1]])
+            elif option == "mutex":
+                records = results_db.analysis.find({"behavior.summary.mutexes": {"$regex": dataarg, "$options": "-i"}}).sort([["_id", -1]])
+            elif option == "domain":
+                records = results_db.analysis.find({"network.domains.domain": {"$regex": dataarg, "$options": "-i"}}).sort([["_id", -1]])
+            elif option == "ip":
+                records = results_db.analysis.find({"network.hosts.ip": dataarg}).sort([["_id", -1]])
+            elif option == "signature":
+                records = results_db.analysis.find({"signatures.description": {"$regex": dataarg, "$options": "-i"}}).sort([["_id", -1]])
+            elif option == "signame":
+                records = results_db.analysis.find({"signatures.name": {"$regex": dataarg, "$options": "-i"}}).sort([["_id", -1]])
+            elif option == "malfamily":
+                records = results_db.analysis.find({"malfamily": {"$regex": value, "$options": "-i"}}).sort([["_id", -1]])
+            elif option == "url":
+                records = results_db.analysis.find({"target.url": dataarg}).sort([["_id", -1]])
+            elif option == "iconhash":
+                records = results_db.analysis.find({"static.pe_icon_hash": dataarg}).sort([["_id", -1]])
+            elif option == "iconfuzzy":
+                records = results_db.analysis.find({"static.pe_icon_fuzzy": dataarg}).sort([["_id", -1]])
+            elif option == "imphash":
+                records = results_db.analysis.find({"static.pe_imphash": dataarg}).sort([["_id", -1]])
+            elif option == "surialert":
+                records = results_db.analysis.find({"suricata.alerts.signature": {"$regex" : dataarg, "$options" : "-i"}}).sort([["_id", -1]])
+            elif option == "surihttp":
+                records = results_db.analysis.find({"suricata.http": {"$regex" : dataarg, "$options" : "-i"}}).sort([["_id", -1]])
+            elif option == "suritls":
+                records = results_db.analysis.find({"suricata.tls": {"$regex" : dataarg, "$options" : "-i"}}).sort([["_id", -1]])
+            elif option == "clamav":
+                records = results_db.analysis.find({"target.file.clamav": {"$regex": dataarg, "$options": "-i"}}).sort([["_id", -1]])
+            elif option == "yaraname":
+                records = results_db.analysis.find({"target.file.yara.name": {"$regex": dataarg, "$options": "-i"}}).sort([["_id", -1]])
+            elif option == "procmemyara":
+                records = results_db.analysis.find({"procmemory.yara.name": {"$regex": dataarg, "$options": "-i"}}).sort([["_id", -1]])
+            elif option == "virustotal":
+                records = results_db.analysis.find({"virustotal.results.sig": {"$regex": dataarg, "$options": "-i"}}).sort([["_id", -1]])
+            elif option == "comment":
+                records = results_db.analysis.find({"info.comments.Data": {"$regex": dataarg, "$options": "-i"}}).sort([["_id", -1]])
+            elif option == "md5":
+                records = results_db.analysis.find({"target.file.md5": dataarg}).sort([["_id", -1]])
+            elif option == "sha1":
+                records = results_db.analysis.find({"target.file.sha1": dataarg}).sort([["_id", -1]])
+            elif option == "sha256":
+                records = results_db.analysis.find({"target.file.sha256": dataarg}).sort([["_id", -1]])
+            elif option == "sha512":
+                records = results_db.analysis.find({"target.file.sha512": dataarg}).sort([["_id", -1]])
+            else:
+                resp = {"error": True,
+                        "error_value": "Invalid Option. '%s' is not a valid option." % option}
+                return jsonize(resp, response=True)
+
+        if repconf.elasticsearchdb.enabled:
+            if term == "name":
+                records = es.search(index="cuckoo-*", doctype="analysis", q="target.file.name: %s" % value)["hits"]["hits"]
+            elif term == "type":
+                records = es.search(index="cuckoo-*", doctype="analysis", q="target.file.type: %s" % value)["hits"]["hits"]
+            elif term == "string":
+                records = es.search(index="cuckoo-*", doctype="analysis", q="strings: %s" % value)["hits"]["hits"]
+            elif term == "ssdeep":
+                records = es.search(index="cuckoo-*", doctype="analysis", q="target.file.ssdeep: %s" % value)["hits"]["hits"]
+            elif term == "crc32":
+                records = es.search(index="cuckoo-*", doctype="analysis", q="target.file.crc32: %s" % value)["hits"]["hits"]
+            elif term == "file":
+                records = es.search(index="cuckoo-*", doctype="analysis", q="behavior.summary.files: %s" % value)["hits"]["hits"]
+            elif term == "command":
+                records = es.search(index="cuckoo-*", doctype="analysis", q="behavior.summary.executed_commands: %s" % value)["hits"]["hits"]
+            elif term == "resolvedapi":
+                records = es.search(index="cuckoo-*", doctype="analysis", q="behavior.summary.resolved_apis: %s" % value)["hits"]["hits"]
+            elif term == "key":
+                records = es.search(index="cuckoo-*", doctype="analysis", q="behavior.summary.keys: %s" % value)["hits"]["hits"]
+            elif term == "mutex":
+                records = es.search(index="cuckoo-*", doctype="analysis", q="behavior.summary.mutex: %s" % value)["hits"]["hits"]
+            elif term == "domain":
+                records = es.search(index="cuckoo-*", doctype="analysis", q="network.domains.domain: %s" % value)["hits"]["hits"]
+            elif term == "ip":
+                records = es.search(index="cuckoo-*", doctype="analysis", q="network.hosts.ip: %s" % value)["hits"]["hits"]
+            elif term == "signature":
+                records = es.search(index="cuckoo-*", doctype="analysis", q="signatures.description: %s" % value)["hits"]["hits"]
+            elif term == "signame":
+                records = es.search(index="cuckoo-*", doctype="analysis", q="signatures.name: %s" % value)["hits"]["hits"]
+            elif term == "malfamily":
+                records = es.search(index="cuckoo-*", doctype="analysis", q="malfamily: %s" % value)["hits"]["hits"]
+            elif term == "url":
+                records = es.search(index="cuckoo-*", doctype="analysis", q="target.url: %s" % value)["hits"]["hits"]
+            elif term == "imphash":
+                records = es.search(index="cuckoo-*", doctype="analysis", q="static.pe_imphash: %s" % value)["hits"]["hits"]
+            elif term == "iconhash":
+                records = es.search(index="cuckoo-*", doctype="analysis", q="static.pe_icon_hash: %s" % value)["hits"]["hits"]
+            elif term == "iconfuzzy":
+                records = es.search(index="cuckoo-*", doctype="analysis", q="static.pe_icon_fuzzy: %s" % value)["hits"]["hits"]
+            elif term == "surialert":
+                records = es.search(index="cuckoo-*", doctype="analysis", q="suricata.alerts.signature: %s" % value)["hits"]["hits"]
+            elif term == "surihttp":
+                records = es.search(index="cuckoo-*", doctype="analysis", q="suricata.http: %s" % value)["hits"]["hits"]
+            elif term == "suritls":
+                records = es.search(index="cuckoo-*", doctype="analysis", q="suricata.tls: %s" % value)["hits"]["hits"]
+            elif term == "clamav":
+                records = es.search(index="cuckoo-*", doctype="analysis", q="target.file.clamav: %s" % value)["hits"]["hits"]
+            elif term == "yaraname":
+                records = es.search(index="cuckoo-*", doctype="analysis", q="target.file.yara.name: %s" % value)["hits"]["hits"]
+            elif term == "procmemyara":
+                records = es.search(index="cuckoo-*", doctype="analysis", q="procmemory.yara.name: %s" % value)["hits"]["hits"]
+            elif term == "virustotal":
+                records = es.search(index="cuckoo-*", doctype="analysis", q="virustotal.results.sig: %s" % value)["hits"]["hits"]
+            elif term == "comment":
+                records = es.search(index="cuckoo-*", doctype="analysis", q="info.comments.Data: %s" % value)["hits"]["hits"]
+            elif term == "md5":
+                records = es.search(index="cuckoo-*", doctype="analysis", q="target.file.md5: %s" % value)["hits"]["hits"]
+            elif term == "sha1":
+                records = es.search(index="cuckoo-*", doctype="analysis", q="target.file.sha1: %s" % value)["hits"]["hits"]
+            elif term == "sha256":
+                records = es.search(index="cuckoo-*", doctype="analysis", q="target.file.sha256: %s" % value)["hits"]["hits"]
+            elif term == "sha512":
+                records = es.search(index="cuckoo-*", doctype="analysis", q="target.file.sha512: %s" % value)["hits"]["hits"]
+            else:
+                resp = {"error": True,
+                        "error_value": "Invalid Option. '%s' is not a valid option." % option}
+                return jsonize(resp, response=True)
 
         if records:
             ids = list()
@@ -715,7 +826,7 @@ def ext_tasks_search(request):
             resp = {"error": False, "data": ids}
         else:
             resp = {"error": True,
-                    "error_value": "Unable to retrieve MongoDB records"}
+                    "error_value": "Unable to retrieve records"}
 
         return jsonize(resp, response=True)
 
@@ -1047,6 +1158,17 @@ def tasks_iocs(request, task_id, detail=None):
             if "tls" in stmp.keys():
                 buf["suricata"]["tls"]=json.loads(json_util.dumps(stmp["tls"]))
 
+    if repconf.elasticsearchdb.get("enabled") and not buf:
+        tmp = es.search(
+                  index="cuckoo-*",
+                  doc_type="analysis",
+                  q="info.id: \"%s\"" % task_id
+               )["hits"]["hits"]
+        if tmp:
+            buf = tmp[-1]["_source"]
+        else:
+            buf = None
+
     if repconf.jsondump.get("enabled") and not buf:
         jfile = os.path.join(CUCKOO_ROOT, "storage", "analyses",
                              "%s" % task_id, "reports", "report.json")
@@ -1105,10 +1227,14 @@ def tasks_iocs(request, task_id, detail=None):
         office = {}
         if "peid_signatures" in buf["static"] and buf["static"]["peid_signatures"]:
             pe["peid_signatures"] = buf["static"]["peid_signatures"]
-        if "pe_timstamp" in buf["static"] and buf["static"]["pe_timestamp"]:
+        if "pe_timestamp" in buf["static"] and buf["static"]["pe_timestamp"]:
             pe["pe_timestamp"] = buf["static"]["pe_timestamp"]
         if "pe_imphash" in buf["static"] and buf["static"]["pe_imphash"]:
             pe["pe_imphash"] = buf["static"]["pe_imphash"]
+        if "pe_icon_hash" in buf["static"] and buf["static"]["pe_icon_hash"]:
+            pe["pe_icon_hash"] = buf["static"]["pe_icon_hash"]
+        if "pe_icon_fuzzy" in buf["static"] and buf["static"]["pe_icon_fuzzy"]:
+            pe["pe_icon_fuzzy"] = buf["static"]["pe_icon_fuzzy"]
         if "Objects" in buf["static"] and buf["static"]["Objects"]:
             pdf["objects"] = len(buf["static"]["Objects"])
         if "Info" in buf["static"] and buf["static"]["Info"]:

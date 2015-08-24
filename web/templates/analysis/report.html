@@ -19,11 +19,13 @@ $(function() {
 </script>
 <div class="row">
     <div class="col-md-6"><p style="margin-bottom: 10px;"><img src="{{ STATIC_URL }}graphic/cuckoo.png" /></p></div>
+    {% if analysis.info.category == "file" and analysis.target %}
     <div class="col-md-6" style="text-align: right;"><a class="btn btn-primary" href="{% url "compare.views.left" analysis.info.id %}">Compare this analysis to...</a></div>
+    {% endif %}
 </div>
 <ul class="nav nav-tabs">
     <li class="active"><a href="#overview" data-toggle="tab">Quick Overview</a></li>
-    {% if analysis.static %}<li><a href="#static" data-toggle="tab">Static Analysis</a></li>{% endif %}
+    {% if analysis.info.category == "file" or config.virustotal %}<li><a href="#static" data-toggle="tab">Static Analysis</a></li>{% endif %}
     {% if analysis.behavior.processes %}<li><a href="#behavior" data-toggle="tab" id="graph_hook">Behavioral Analysis</a></li>{% endif %}
     <li><a href="#network" data-toggle="tab">Network Analysis</a></li>
     {% if analysis.dropped|length %}

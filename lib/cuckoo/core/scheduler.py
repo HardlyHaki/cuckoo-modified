@@ -6,8 +6,8 @@ import os
 import time
 import shutil
 import logging
+import threading
 import Queue
-from threading import Thread, Lock
 
 try:
     import re2 as re
@@ -23,7 +23,6 @@ from lib.cuckoo.common.objects import File
 from lib.cuckoo.common.utils import create_folder
 from lib.cuckoo.core.database import Database, TASK_COMPLETED, TASK_REPORTED
 from lib.cuckoo.core.database import TASK_FAILED_ANALYSIS
-from lib.cuckoo.core.database import ANALYSIS_STARTED, ANALYSIS_FINISHED
 from lib.cuckoo.core.guest import GuestManager
 from lib.cuckoo.core.plugins import list_plugins, RunAuxiliary, RunProcessing
 from lib.cuckoo.core.plugins import RunSignatures, RunReporting, GetFeeds
@@ -40,8 +39,8 @@ except ImportError:
 log = logging.getLogger(__name__)
 
 machinery = None
-machine_lock = Lock()
-latest_symlink_lock = Lock()
+machine_lock = None
+latest_symlink_lock = threading.Lock()
 
 active_analysis_count = 0
 
@@ -55,7 +54,7 @@ class CuckooDeadMachine(Exception):
     pass
 
 
-class AnalysisManager(Thread):
+class AnalysisManager(threading.Thread):
     """Analysis Manager.
 
     This class handles the full analysis process for a given task. It takes
@@ -66,8 +65,7 @@ class AnalysisManager(Thread):
 
     def __init__(self, task, error_queue):
         """@param task: task object containing the details for the analysis."""
-        Thread.__init__(self)
-        Thread.daemon = True
+        threading.Thread.__init__(self)
 
         self.task = task
         self.errors = error_queue
@@ -75,6 +73,7 @@ class AnalysisManager(Thread):
         self.storage = ""
         self.binary = ""
         self.machine = None
+        self.db = Database()
 
     def init_storage(self):
         """Initialize analysis storage folder."""
@@ -102,7 +101,7 @@ class AnalysisManager(Thread):
 
     def check_file(self):
         """Checks the integrity of the file to be analyzed."""
-        sample = Database().view_sample(self.task.sample_id)
+        sample = self.db.view_sample(self.task.sample_id)
 
         sha256 = File(self.task.target).get_sha256()
         if sha256 != sample.sha256:
@@ -257,7 +256,6 @@ class AnalysisManager(Thread):
 
         # At this point we can tell the ResultServer about it.
         try:
-            Database().recruit_machine(self.task.id, self.machine.id)
             ResultServer().add_task(self.task, self.machine)
         except Exception as e:
             machinery.release(self.machine.label)
@@ -270,10 +268,10 @@ class AnalysisManager(Thread):
             unlocked = False
 
             # Mark the selected analysis machine in the database as started.
-            guest_log = Database().guest_start(self.task.id,
-                                               self.machine.name,
-                                               self.machine.label,
-                                               machinery.__class__.__name__)
+            guest_log = self.db.guest_start(self.task.id,
+                                            self.machine.name,
+                                            self.machine.label,
+                                            machinery.__class__.__name__)
             # Start the machine.
             machinery.start(self.machine.label)
 
@@ -288,8 +286,6 @@ class AnalysisManager(Thread):
 
             # Start the analysis.
             guest.start_analysis(options)
-
-            Database().set_statistics_time(self.task.id, ANALYSIS_STARTED)
 
             guest.wait_for_completion()
             succeeded = True
@@ -327,7 +323,7 @@ class AnalysisManager(Thread):
             # Mark the machine in the database as stopped. Unless this machine
             # has been marked as dead, we just keep it as "started" in the
             # database so it'll not be used later on in this session.
-            Database().guest_stop(guest_log)
+            self.db.guest_stop(guest_log)
 
             # After all this, we can make the ResultServer forget about the
             # internal state for this analysis task.
@@ -337,7 +333,7 @@ class AnalysisManager(Thread):
                 # Remove the guest from the database, so that we can assign a
                 # new guest when the task is being analyzed with another
                 # machine.
-                Database().guest_remove(guest_log)
+                self.db.guest_remove(guest_log)
 
                 # Remove the analysis directory that has been created so
                 # far, as launch_analysis() is going to be doing that again.
@@ -356,7 +352,6 @@ class AnalysisManager(Thread):
                 log.error("Unable to release machine %s, reason %s. "
                           "You might need to restore it manually.",
                           self.machine.label, e)
-        Database().set_statistics_time(self.task.id, ANALYSIS_FINISHED)
 
         return succeeded
 
@@ -373,9 +368,9 @@ class AnalysisManager(Thread):
         results["statistics"]["signatures"] = list()
         results["statistics"]["reporting"] = list()
         GetFeeds(results=results).run()
-        RunProcessing(task_id=self.task.id, results=results).run()
-        RunSignatures(task_id=self.task.id, results=results).run()
-        RunReporting(task_id=self.task.id, results=results).run()
+        RunProcessing(task=self.task.to_dict(), results=results).run()
+        RunSignatures(task=self.task.to_dict(), results=results).run()
+        RunReporting(task=self.task.to_dict(), results=results).run()
 
         # If the target is a file and the user enabled the option,
         # delete the original copy.
@@ -419,14 +414,20 @@ class AnalysisManager(Thread):
 
                 break
 
-            Database().set_status(self.task.id, TASK_COMPLETED)
+            self.db.set_status(self.task.id, TASK_COMPLETED)
+
+            # If the task is still available in the database, update our task
+            # variable with what's in the database, as otherwise we're missing
+            # out on the status and completed_on change. This would then in
+            # turn thrown an exception in the analysisinfo processing module.
+            self.task = self.db.view_task(self.task.id) or self.task
 
             log.debug("Released database task #%d with status %s",
                       self.task.id, success)
 
             if self.cfg.cuckoo.process_results:
                 self.process_results()
-                Database().set_status(self.task.id, TASK_REPORTED)
+                self.db.set_status(self.task.id, TASK_REPORTED)
 
             # We make a symbolic link ("latest") which links to the latest
             # analysis - this is useful for debugging purposes. This is only
@@ -440,7 +441,9 @@ class AnalysisManager(Thread):
                 # Deal with race conditions using a lock.
                 latest_symlink_lock.acquire()
                 try:
-                    if os.path.exists(latest):
+                    # As per documentation, lexists() returns True for dead
+                    # symbolic links.
+                    if os.path.lexists(latest):
                         os.remove(latest)
 
                     os.symlink(self.storage, latest)
@@ -474,11 +477,21 @@ class Scheduler:
 
     def initialize(self):
         """Initialize the machine manager."""
-        global machinery
+        global machinery, machine_lock
 
         machinery_name = self.cfg.cuckoo.machinery
 
-        log.info("Using \"%s\" machine manager", machinery_name)
+        max_vmstartup_count = self.cfg.cuckoo.max_vmstartup_count
+        if max_vmstartup_count:
+            machine_lock = threading.Semaphore(max_vmstartup_count)
+        else:
+            machine_lock = threading.Lock()
+
+        log.info("Using \"%s\" machine manager with max_analysis_count=%d, "
+                 "max_machines_count=%d, and max_vmstartup_count=%d",
+                 machinery_name, self.cfg.cuckoo.max_analysis_count,
+                 self.cfg.cuckoo.max_machines_count,
+                 self.cfg.cuckoo.max_vmstartup_count)
 
         # Get registered class name. Only one machine manager is imported,
         # therefore there should be only one class in the list.
@@ -606,6 +619,7 @@ class Scheduler:
 
                         # Initialize and start the analysis manager.
                         analysis = AnalysisManager(task, errors)
+                        analysis.daemon = True
                         analysis.start()
                         break
 
