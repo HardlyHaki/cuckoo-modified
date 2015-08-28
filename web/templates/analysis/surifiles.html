@@ -102,13 +102,26 @@
                         <th>IQRisk</th>
                         <td><a href="https://portal.emergingthreats.net/search?q={{file.md5}}" target="_blank"><span class="mono">IQRisk</span></a></td>
                     </tr>
-
-                    {% if file.object_id %}
+                    {% endif %}
+                    {% if file.object_id or file.id %}
                     <tr>
                         <th></th>
-                        <td><a href="{% url "analysis.views.file" "suricata" file.object_id %}" class="btn btn-primary btn-small">Download</a></td>
+                        {% if config.mongodb %}
+                        <td><a href="{% url "analysis.views.mongo_file" "suricata" file.object_id %}" class="btn btn-primary btn-small">Download</a>
+                        {% elif config.elasticsearchdb %}
+                        <td><a href="{% url "analysis.views.elastic_file" "suricata" analysis.info.id file.id %}" class="btn btn-primary btn-small">Download</a>
+                         {% endif %}
+                         {% if file.file_info.data %}
+                         &emsp;<a class="btn btn-primary btn-small" data-toggle="collapse" data-target="#{{file.sp}}{{file.dp}}{{file.id}}">Display Text</a>
+                        {% endif %}
+                        </td>
+                    </tr>
+                    {% if file.file_info.data %}
+                    <tr class="collapse" id="{{file.sp}}{{file.dp}}{{file.id}}">
+                        <td colspan="2"><pre>{{file.file_info.data}}</pre></td>
                     </tr>
                     {% endif %}
+                {% endif %}
                 </table>
             </div>
         {% endfor %}
