@@ -172,10 +172,6 @@ def tasks_create_file(request):
         memory = bool(request.POST.get("memory", False))
         clock = request.POST.get("clock", None)
         enforce_timeout = bool(request.POST.get("enforce_timeout", False))
-        shrike_url = request.POST.get("shrike_url", None)
-        shrike_msg = request.POST.get("shrike_msg", None)
-        shrike_sid = request.POST.get("shrike_sid", None)
-        shrike_refer = request.POST.get("shrike_refer", None)
         gateway = request.POST.get("gateway",None)
 
         task_ids = []
@@ -256,11 +252,7 @@ def tasks_create_file(request):
                                           custom=custom,
                                           memory=memory,
                                           enforce_timeout=enforce_timeout,
-                                          clock=clock,
-                                          shrike_url=shrike_url,
-                                          shrike_msg=shrike_msg,
-                                          shrike_sid=shrike_sid,
-                                          shrike_refer=shrike_refer
+                                          clock=clock
                                           )
                     if task_ids_new:
                         task_ids.extend(task_ids_new)
@@ -301,11 +293,7 @@ def tasks_create_file(request):
                                       custom=custom,
                                       memory=memory,
                                       enforce_timeout=enforce_timeout,
-                                      clock=clock,
-                                      shrike_url=shrike_url,
-                                      shrike_msg=shrike_msg,
-                                      shrike_sid=shrike_sid,
-                                      shrike_refer=shrike_refer
+                                      clock=clock
                                       )
                 if task_ids_new:
                     task_ids.extend(task_ids_new)
