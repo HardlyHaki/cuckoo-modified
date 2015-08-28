@@ -54,7 +54,7 @@ class Moloch(Report):
             if response.code == 200:
                 plain_answer = response.read()
                 json_data = json.loads(plain_answer)
-            time.sleep(2)
+            time.sleep(.5)
         except Exception, e:
             log.warning("Moloch: Unable to update tags %s" % (e))
 
