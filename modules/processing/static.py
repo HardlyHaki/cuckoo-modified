@@ -13,8 +13,8 @@ import math
 import array
 import base64
 import hashlib
-from datetime import datetime, timedelta
 
+from datetime import datetime, timedelta
 from lib.cuckoo.common.icon import PEGroupIconDir
 from PIL import Image
 from StringIO import StringIO
@@ -469,7 +469,12 @@ class PortableExecutable(object):
         if not self.pe:
             return None
 
-        return "0x{0:08x}".format(self.pe.generate_checksum())
+        retstr = None
+        try:
+            retstr = "0x{0:08x}".format(self.pe.generate_checksum())
+        except:
+            log.warning("Detected outdated version of pefile.  Please update to the latest version at https://github.com/erocarrera/pefile")
+        return retstr
 
     def _get_osversion(self):
         """Get minimum required OS version for PE to execute
@@ -737,6 +742,52 @@ class PDF(object):
     def __init__(self, file_path):
         self.file_path = file_path
         self.pdf = None
+        self.base_uri = ""
+
+    def _clean_string(self, value):
+        # handle BOM for typical english unicode while avoiding some
+        # invalid BOM seen in malicious PDFs (like using the utf16le BOM
+        # for an ascii string)
+        if value.startswith("\xfe\xff"):
+            clean = True
+            for x in value[2::2]:
+                if ord(x):
+                    clean = False
+                    break
+            if clean:
+                return value[3::2]
+        elif value.startswith("\xff\xfe"):
+            clean = True
+            for x in value[3::2]:
+                if ord(x):
+                    clean = False
+                    break
+            if clean:
+                return value[2::2]
+        return value
+
+    def _get_obj_val(self, version, obj):
+        try:
+            if obj.type == "reference":
+                return self.pdf.body[version].getObject(obj.id)
+        except:
+            pass
+        return obj
+
+    def _set_base_uri(self):
+        try:
+            for version in range(self.pdf.updates+1):
+                trailer, streamTrailer = self.pdf.trailer[version]
+                if trailer != None:
+                    elem = trailer.dict.getElementByName("/Root")
+                    elem = self._get_obj_val(version, elem)
+                    elem = elem.getElementByName("/URI")
+                    elem = self._get_obj_val(version, elem)
+                    elem = elem.getElementByName("/Base")
+                    elem = self._get_obj_val(version, elem)
+                    self.base_uri = elem.getValue()
+        except:
+            pass
 
     def _parse(self, filepath):
         """Parses the PDF for static information. Uses PyV8 from peepdf to
@@ -756,28 +807,38 @@ class PDF(object):
         info['Entropy Out Streams'] = pdfid_data['pdfid']['nonStreamEntropy']
         info['Count %% EOF'] = pdfid_data['pdfid']['countEof']
         info['Data After EOF'] = pdfid_data['pdfid']['countChatAfterLastEof']
+        # Note, PDFiD doesn't interpret some dates properly, specifically it doesn't
+        # seem to be able to properly represent time zones that involve fractions of
+        # an hour
         dates = pdfid_data['pdfid']['dates']['date']
 
-        # Get streams, counts and format.
-        streams = {}
-        for stream in pdfid_data['pdfid']['keywords']['keyword']:
-            streams[str(stream['name'])] = stream['count']
+        # Get keywords, counts and format.
+        keywords = {}
+        for keyword in pdfid_data['pdfid']['keywords']['keyword']:
+            keywords[str(keyword['name'])] = keyword['count']
 
         result = {}
         result["Info"] = info
         result["Dates"] = dates
-        result["Streams"] = streams
+        result["Keywords"] = keywords
 
         log.debug("About to parse with PDFParser")
         parser = PDFParser()
-        ret, pdf = parser.parse(filepath, True, False)
+        ret, self.pdf = parser.parse(filepath, forceMode=True, looseMode=True, manualAnalysis=False)
+        urlset = set()
+        annoturiset = set()
         objects = []
         retobjects = []
-        count = 0
-        object_counter = 1
+        metadata = dict()
 
-        for i in range(len(pdf.body)):
-            body = pdf.body[count]
+        self._set_base_uri()
+
+        for i in range(len(self.pdf.body)):
+            body = self.pdf.body[i]
+            metatmp = self.pdf.getBasicMetadata(i)
+            if metatmp:
+                metadata = metatmp
+
             objects = body.objects
 
             for index in objects:
@@ -793,14 +854,20 @@ class PDF(object):
                 if details.type == 'stream':
                     encoded_stream = details.encodedStream
                     decoded_stream = details.decodedStream
-                    obj_data["File Type"] = _get_filetype(decoded_stream)[:100]
                     if HAVE_PYV8:
+                        jsdata = None
                         try:
-                            jsdata = analyseJS(decoded_stream.strip())[0][0]
+                            jslist, unescapedbytes, urlsfound, errors, ctxdummy = analyseJS(decoded_stream.strip())
+                            jsdata = jslist[0]
                         except Exception,e:
-                            jsdata = "PyV8 failed to parse the stream."
+                            continue
+                        if len(errors):
+                            continue
                         if jsdata == None:
-                            jsdata = "PyV8 did not detect JavaScript in the stream. (Possibly encrypted)"
+                            continue
+
+                        for url in urlsfound:
+                            urlset.add(url)
 
                         # The following loop is required to "JSONify" the strings returned from PyV8.
                         # As PyV8 returns byte strings, we must parse out bytecode and
@@ -808,25 +875,55 @@ class PDF(object):
                         # as this would mess up the new line representation which is used for
                         # beautifying the javascript code for Django's web interface.
                         ret_data = ""
-                        for i in xrange(len(jsdata)):
-                            if ord(jsdata[i]) > 127:
-                                tmp = "\\x" + str(jsdata[i].encode("hex"))
+                        for x in xrange(len(jsdata)):
+                            if ord(jsdata[x]) > 127:
+                                tmp = "\\x" + str(jsdata[x].encode("hex"))
                             else:
-                                tmp = jsdata[i]
+                                tmp = jsdata[x]
                             ret_data += tmp
                     else:
-                        ret_data = "PyV8 not installed, unable to extract JavaScript."
+                        continue
 
                     obj_data["Data"] = ret_data
                     retobjects.append(obj_data)
-                    object_counter += 1
+                elif details.type == "dictionary" and details.hasElement("/A"):
+                    # verify it to be a link type annotation
+                    subtype_elem = details.getElementByName("/Subtype")
+                    type_elem = details.getElementByName("/Type")
+                    if not subtype_elem or not type_elem:
+                        continue
+                    subtype_elem = self._get_obj_val(i, subtype_elem)
+                    type_elem = self._get_obj_val(i, type_elem)
+                    if subtype_elem.getValue() != "/Link" or type_elem.getValue() != "/Annot":
+                        continue
+                    a_elem = details.getElementByName("/A")
+                    a_elem = self._get_obj_val(i, a_elem)
+                    if a_elem.type == "dictionary" and a_elem.hasElement("/URI"):
+                        uri_elem = a_elem.getElementByName("/URI")
+                        uri_elem = self._get_obj_val(i, uri_elem)
+                        annoturiset.add(self.base_uri + uri_elem.getValue())
                 else:
-                    obj_data["File Type"] = "Encoded"
-                    obj_data["Data"] = "Encoded"
-                    retobjects.append(obj_data)
+                    # can be dictionaries, arrays, etc, don't bother displaying them
+                    # all for now
+                    pass
+                    #obj_data["File Type"] = "Encoded"
+                    #obj_data["Data"] = "Encoded"
+                    #retobjects.append(obj_data)
 
-            count += 1
-            result["Objects"] = retobjects
+            result["JSStreams"] = retobjects
+
+        if "creator" in metadata:
+            result["Info"]["Creator"] = convert_to_printable(self._clean_string(metadata["creator"]))
+        if "producer" in metadata:
+            result["Info"]["Producer"] = convert_to_printable(self._clean_string(metadata["producer"]))
+        if "author" in metadata:
+            result["Info"]["Author"] = convert_to_printable(self._clean_string(metadata["author"]))
+
+        if len(urlset):
+            result["JS_URLs"] = list(urlset)
+        if len(annoturiset):
+            result["Annot_URLs"] = list(annoturiset)
+
         return result
 
     def run(self):
@@ -992,11 +1089,13 @@ class Static(Processing):
                 static = PortableExecutable(self.file_path, self.results).run()
                 if static and "Mono" in thetype:
                     static.update(DotNETExecutable(self.file_path, self.results).run())
-            elif "PDF" in thetype:
+            elif "PDF" in thetype or self.task["target"].endswith(".pdf"):
                 static = PDF(self.file_path).run()
             elif "Word 2007" in thetype or "Excel 2007" in thetype or "PowerPoint 2007" in thetype:
                 static = Office(self.file_path).run()
             elif "Composite Document File" in thetype:
+                static = Office(self.file_path).run()
+            elif self.task["target"].endswith((".doc", ".docx", ".rtf", ".xls", ".xlsx", ".ppt", ".pptx", ".pps", ".ppsx", ".pptm", ".potm", ".potx", ".ppsm")):
                 static = Office(self.file_path).run()
             # It's possible to fool libmagic into thinking our 2007+ file is a
             # zip. So until we have static analysis for zip files, we can use

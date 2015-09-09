@@ -1,4 +1,4 @@
-# Copyright (C) 2010-2015 Cuckoo Foundation.
+﻿# Copyright (C) 2010-2015 Cuckoo Foundation.
 # This file is part of Cuckoo Sandbox - http://www.cuckoosandbox.org
 # See the file 'docs/LICENSE' for copying permission.
 
@@ -115,5 +115,4 @@ class AnalysisInfo(Processing):
             parent_id=self.task["parent_id"],
             options=self.get_options(self.task["options"]),
             timeout=self.had_timeout()
-            #options=self.task["options"]
         )

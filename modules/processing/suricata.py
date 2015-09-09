@@ -1,4 +1,4 @@
-# Copyright (C) 2010-2012 Cuckoo Sandbox Developers.
+﻿# Copyright (C) 2010-2012 Cuckoo Sandbox Developers.
 # This file is part of Cuckoo Sandbox - http://www.cuckoosandbox.org
 # See the file 'docs/LICENSE' for copying permission.
 
@@ -97,14 +97,10 @@ class Suricata(Processing):
         # Useful for ignoring SIDs without disabling them. Ex: surpress an alert for
         # a SID which is a dependent of another. (Bad TCP data for HTTP(S) alert)
         sid_blacklist = [
+                        # SURICATA FRAG IPv6 Fragmentation overlap
                         2200074,
-                        2210001,
-                        2210021,
-                        2210012,
-                        2210025,
-                        2210029,
-                        2210042,
-                        2210045,
+                        # ET INFO InetSim Response from External Source Possible SinkHole
+                        2017363,
         ]
         if SURICATA_RUNMODE == "socket":
             if SURICATA_SOCKET_PYLIB != None:

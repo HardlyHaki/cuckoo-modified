@@ -1173,6 +1173,11 @@ def tasks_iocs(request, task_id, detail=None):
         return jsonize(resp, response=True)
 
     data = {}
+    if buf["malfamily"]:
+        data["malfamily"] = buf["malfamily"]
+    else:
+        data["malfamily"] = "None Identified"
+    data["malscore"] = buf["malscore"]
     data["info"] = buf["info"]
     del data["info"]["custom"]
     del data["info"]["machine"]["manager"]
@@ -1189,12 +1194,10 @@ def tasks_iocs(request, task_id, detail=None):
         if data["target"]["category"] == "file":
             del data["target"]["file"]["path"]
             del data["target"]["file"]["guest_paths"]
-            # MongoDB stores a file_id as an object which breaks JSON parsing
-            # So try/except to delete it in case jsondump reporting is off.
-            try:
+            # MongoDB stores file_id as an object which is not JSON
+            # serializable
+            if "file_id" in data["target"].keys():
                 del data["target"]["file_id"]
-            except:
-                pass
     data["network"] = {}
     if "network" in buf.keys():
         data["network"]["traffic"] = {}
@@ -1209,10 +1212,13 @@ def tasks_iocs(request, task_id, detail=None):
     if "suricata" in buf.keys():
         if "alerts" in buf["suricata"].keys():
             data["network"]["ids"]["alerts"] = buf["suricata"]["alerts"]
+            data["network"]["ids"]["totalalerts"] = len(buf["suricata"]["alerts"])
         if "files" in buf["suricata"].keys(): 
             data["network"]["ids"]["files"] = buf["suricata"]["files"]
+            data["network"]["ids"]["totalfiles"] = len(buf["suricata"]["files"])
         if "tls" in buf["suricata"].keys():
             data["network"]["ids"]["tls"] = buf["suricata"]["tls"]
+
     data["static"] = {}
     if "static" in buf.keys():
         pe = {}
