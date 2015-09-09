@@ -9,6 +9,7 @@ import subprocess
 import platform
 import urllib
 import base64
+import re
 from time import time
 from ctypes import byref, c_ulong, create_string_buffer, c_int, sizeof
 from shutil import copy
@@ -34,6 +35,15 @@ from lib.core.log import LogServer
 IOCTL_PID = 0x222008
 IOCTL_CUCKOO_PATH = 0x22200C
 PATH_KERNEL_DRIVER = "\\\\.\\DriverSSDT"
+
+#Django Validator BSD lic. https://github.com/django/django
+url_re = re.compile(
+        r'^(?:http|ftp)s?://' # http:// or https://
+        r'(?:(?:[A-Z0-9](?:[A-Z0-9-]{0,61}[A-Z0-9])?\.)+(?:[A-Z]{2,6}\.?|[A-Z0-9-]{2,}\.?)|' #domain...
+        r'localhost|' #localhost...
+        r'\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3})' # ...or ip
+        r'(?::\d+)?' # optional port
+        r'(?:/?|[/?]\S+)$', re.IGNORECASE)
 
 log = logging.getLogger(__name__)
 
@@ -565,10 +575,15 @@ class Process:
             if "no-stealth" in cfgoptions:
                 config.write("no-stealth={0}\n".format(cfgoptions["no-stealth"]))
             if "norefer" not in cfgoptions:
-                config.write("referrer={0}\n".format(get_referrer_url(interest)))
+                if "referer" in cfgoptions and url_re.match(cfgoptions["referer"]):
+                    ref = cfgoptions["referer"]  
+                else:
+                    ref = get_referrer_url(interest)
+                config.write("referrer={0}\n".format(ref))
+
             if firstproc:
                 Process.first_process = False
-
+            
         if thread_id or self.suspended:
             log.debug("Using QueueUserAPC injection.")
         else:
