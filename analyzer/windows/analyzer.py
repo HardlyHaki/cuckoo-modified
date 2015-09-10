@@ -53,6 +53,7 @@ DEFAULT_DLL = None
 SERVICES_PID = None
 MONITORED_SERVICES = False
 LASTINJECT_TIME = None
+NUM_INJECTED = 0
 
 PID = os.getpid()
 PPID = Process(pid=PID).get_parent_pid()
@@ -207,12 +208,13 @@ class PipeHandler(Thread):
     decides what to do with them.
     """
 
-    def __init__(self, h_pipe, options):
+    def __init__(self, h_pipe, config, options):
         """@param h_pipe: PIPE to read.
            @param options: options for analysis
         """
         Thread.__init__(self)
         self.h_pipe = h_pipe
+        self.config = config
         self.options = options
 
     def run(self):
@@ -221,6 +223,7 @@ class PipeHandler(Thread):
         """
         global MONITORED_SERVICES
         global LASTINJECT_TIME
+        global NUM_INJECTED
         try:
             data = ""
             response = "OK"
@@ -379,6 +382,7 @@ class PipeHandler(Thread):
                     if process_id not in PROCESS_LIST:
                         add_pids(process_id)
                     PROCESS_LOCK.release()
+                    NUM_INJECTED += 1
                     log.info("Cuckoomon successfully loaded in process with pid %u.", process_id)
 
                 # In case of PID, the client is trying to notify the creation of
@@ -428,13 +432,21 @@ class PipeHandler(Thread):
                                                suspended=suspended)
 
                                 filepath = proc.get_filepath()
+                                # if it's a URL analysis, provide the URL to all processes as
+                                # the "interest" -- this will allow cuckoomon to see in the
+                                # child browser process that a URL analysis is occurring
+                                if self.config.category == "file" or NUM_INJECTED > 1:
+                                    interest = filepath
+                                else:
+                                    interest = self.config.target
+
                                 is_64bit = proc.is_64bit()
                                 filename = os.path.basename(filepath)
 
                                 log.info("Announced %s process name: %s pid: %d", "64-bit" if is_64bit else "32-bit", filename, process_id)
 
                                 if not in_protected_path(filename):
-                                    res = proc.inject(dll, filepath)
+                                    res = proc.inject(dll, interest)
                                     LASTINJECT_TIME = datetime.now()
                                 proc.close()
                         else:
@@ -489,11 +501,12 @@ class PipeServer(Thread):
     new processes being spawned and for files being created or deleted.
     """
 
-    def __init__(self, options, pipe_name=PIPE):
+    def __init__(self, config, pipe_name=PIPE):
         """@param pipe_name: Cuckoo PIPE server name."""
         Thread.__init__(self)
         self.pipe_name = pipe_name
-        self.options = options
+        self.config = config
+        self.options = config.get_options()
         self.do_run = True
 
     def stop(self):
@@ -523,7 +536,7 @@ class PipeServer(Thread):
 
                 # If we receive a connection to the pipe, we invoke the handler.
                 if KERNEL32.ConnectNamedPipe(h_pipe, None) or KERNEL32.GetLastError() == ERROR_PIPE_CONNECTED:
-                    handler = PipeHandler(h_pipe, self.options)
+                    handler = PipeHandler(h_pipe, self.config, self.options)
                     handler.daemon = True
                     handler.start()
                 else:
@@ -650,7 +663,7 @@ class Analyzer:
         # Initialize and start the Pipe Servers. This is going to be used for
         # communicating with the injected and monitored processes.
         for x in xrange(self.PIPE_SERVER_COUNT):
-            self.pipes[x] = PipeServer(self.config.get_options())
+            self.pipes[x] = PipeServer(self.config)
             self.pipes[x].daemon = True
             self.pipes[x].start()
 
