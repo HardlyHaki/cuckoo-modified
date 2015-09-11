@@ -141,8 +141,6 @@ def index(request):
         elif "url" in request.POST and request.POST.get("url").strip():
             url = request.POST.get("url").strip()
             
-#        elif "url" in request.POST:
-#            url = request.POST.get("url").strip()
             if not url:
                 return render_to_response("error.html",
                                           {"error": "You specified an invalid URL!"},
@@ -150,6 +148,12 @@ def index(request):
 
             if re.match(r"https?\:\/\/[^\x2f]+$",url,re.I):
                 url = url + "/"
+
+
+            if request.POST.get("norefer"):
+                if options:
+                    options += ","
+                options += "norefer=yes"
 
             url = url.replace("hxxps://", "https://").replace("hxxp://", "http://").replace("[.]", ".")
             for entry in task_machines:
