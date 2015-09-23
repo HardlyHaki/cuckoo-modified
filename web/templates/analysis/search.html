@@ -310,7 +310,6 @@
                         </td>
                         {% endif %}
                         <td>
-                        </td>
                             {% if analysis.pcap_id %}
                                 {% if config.mongodb %}
                                     <a href="{% url "analysis.views.mongo_file" "pcap" analysis.pcap_id %}" target="_blank"><span class="mono">PCAP</span></a>

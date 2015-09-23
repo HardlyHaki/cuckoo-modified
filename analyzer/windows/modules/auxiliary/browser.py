@@ -1,4 +1,4 @@
-# Copyright (C) 2015 Optiv, Inc. (brad.spengler@optiv.com)
+# Copyright (C) 2015 Accuvant, Inc. (bspengler@accuvant.com)
 # This file is part of Cuckoo Sandbox - http://www.cuckoosandbox.org
 # See the file 'docs/LICENSE' for copying permission.
 
@@ -27,13 +27,16 @@ class Browser(Auxiliary, Thread):
     def run(self):
         startbrowser = self.options.get("startbrowser")
         url = self.options.get("url")
+        browserdelay = int(self.options.get("browserdelay"))
         if not startbrowser:
             return True
+        if not browserdelay:
+            browserdelay = 30
 
         while self.do_run:
             time.sleep(1)
             self.seconds_elapsed = self.seconds_elapsed + 1
-            if self.seconds_elapsed == 30:
+            if self.seconds_elapsed == browserdelay:
                 iexplore = os.path.join(os.getenv("ProgramFiles"), "Internet Explorer", "iexplore.exe")
                 ie = Process()
                 if not url:
