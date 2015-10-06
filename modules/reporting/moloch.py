@@ -75,6 +75,7 @@ class Moloch(Report):
         self.pcap_path = os.path.join(self.analysis_path, "dump.pcap")
         self.MOLOCH_URL = self.options.get("base",None)
         self.task_id = results["info"]["id"]
+        self.custom = None
         if results["info"].has_key("machine") and results["info"]["machine"].has_key("name"):
             self.machine_name = re.sub(r"[\W]","_",str(results["info"]["machine"]["name"]))
         else:
@@ -83,7 +84,10 @@ class Moloch(Report):
             self.gateway = re.sub(r"[\W]","_",str(results["info"]["options"]["setgw"]))
         else:
             self.gateway = "Default"
-        
+
+        if results["info"].has_key("options") and results["info"].has_key("custom"):
+            self.custom = re.sub(r"[\W]","_",str(results["info"]["custom"]))
+
         if not os.path.exists(self.MOLOCH_CAPTURE_BIN):
             log.warning("Unable to Run moloch-capture: BIN File %s Does Not Exist" % (self.MOLOCH_CAPTURE_BIN))
             return
@@ -93,7 +97,8 @@ class Moloch(Report):
             return         
         try:
             cmd = "%s -c %s -r %s -n %s -t %s:%s -t cuckoo_jtype:%s -t cuckoo_machine:%s -t cuckoo_gw:%s" % (self.MOLOCH_CAPTURE_BIN,self.MOLOCH_CAPTURE_CONF,self.pcap_path,self.CUCKOO_INSTANCE_TAG,self.CUCKOO_INSTANCE_TAG,self.task_id,self.task["category"],self.machine_name,self.gateway)
-            time.sleep(1)
+            if self.custom:
+                cmd = cmd + " -t custom:%s" % (self.custom)
         except Exception,e:
             log.warning("Unable to Build Basic Moloch CMD: %s" % e)
              
@@ -126,6 +131,7 @@ class Moloch(Report):
             for entry in results["signatures"]:
                 cmd = cmd + " -t \"cuckoosig:%s:%s\"" % (re.sub(r"[\W]","_",str(entry["name"])),re.sub(r"[\W]","_",str(entry["severity"])))
         try:                   
+            log.debug("moloch: running import command %s " % (cmd))
             ret,stdout,stderr = self.cmd_wrapper(cmd)
             if ret == 0:
                log.warning("moloch: imported pcap %s" % (self.pcap_path))
@@ -177,6 +183,7 @@ class Moloch(Report):
                for entry in self.alerthash:
                    tags = ','.join(map(str,self.alerthash[entry]['sids']) + map(str,self.alerthash[entry]['msgs']))
                    if tags:
+                       log.debug("moloch: updating alert tags %s" % (self.alerthash[entry]['expression']))
                        self.update_tags(tags,self.alerthash[entry]['expression'])
 
            if results["suricata"].has_key("files"):
@@ -226,5 +233,6 @@ class Moloch(Report):
                    #tags = ','.join(map(str,self.fileshash[entry]['clamav']) + map(str,self.fileshash[entry]['md5']) + map(str,self.fileshash[entry]['sha1']) + map(str,self.fileshash[entry]['sha256']) + map(str,self.fileshash[entry]['crc32']) + map(str,self.fileshash[entry]['ssdeep']) + map(str,self.fileshash[entry]['yara']))
                    tags = ','.join(map(str,self.fileshash[entry]['clamav']) + map(str,self.fileshash[entry]['md5']) + map(str,self.fileshash[entry]['sha1']) + map(str,self.fileshash[entry]['sha256']) + map(str,self.fileshash[entry]['yara']))
                    if tags:
+                       log.debug("moloch: updating file tags %s" % (self.fileshash[entry]['expression'])) 
                        self.update_tags(tags,self.fileshash[entry]['expression'])                
         return {} 
