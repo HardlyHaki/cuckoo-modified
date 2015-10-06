@@ -19,7 +19,7 @@
                     {% endif %}
                     <td><a href="https://www.virustotal.com/en/ip-address/{{host.ip}}/information/">{{host.ip}}</a>
                     {% if config.display_et_portal %}
-                        <a href="https://portal.emergingthreats.net/search?q={{host.ip}}" target="_blank"><span class="mono">IQRisk</span></a>
+                        <a href="https://threatintel.proofpoint.com/search?q={{host.ip}}" target="_blank"><span class="mono">ETIntel</span></a>
                     {% endif %}
                     </td>                    
                     <td>{{host.country_name}}</td>

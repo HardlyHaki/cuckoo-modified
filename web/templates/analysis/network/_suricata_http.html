@@ -22,7 +22,7 @@
                     {%if e.src_ip %}
                       {{e.src_ip}}
                       {% if e.moloch_src_ip_url %} <a href={{e.moloch_src_ip_url}} target="_blank"><span class="mono">MLCH</span></a>{% endif %}
-                      {% if config.display_et_portal %} <a href="https://portal.emergingthreats.net/search?q={{e.src_ip}}" target="_blank"><span class="mono">IQRisk</span></a>{% endif %}
+                      {% if config.display_et_portal %} <a href="https://threatintel.proofpoint.com/search?q={{e.src_ip}}" target="_blank"><span class="mono">ETIntel</span></a>{% endif %}
                       <a href="https://www.virustotal.com/en/ip-address/{{e.src_ip}}/information/" target="_blank"><span class="mono">VT</span></a>
                     {% else %}
                         <span class="mono">None</span>
@@ -40,7 +40,7 @@
                     {%if e.dest_ip %}
                      {{e.dest_ip}}
                       {% if e.moloch_dst_ip_url %} <a href={{e.moloch_dst_ip_url}} target="_blank"><span class="mono">MLCH</span></a>{% endif %}
-                      {% if config.display_et_portal %} <a href="https://portal.emergingthreats.net/search?q={{e.dest_ip}}" target="_blank"><span class="mono">IQRisk</span></a>{% endif %}
+                      {% if config.display_et_portal %} <a href="https://threatintel.proofpoint.com/search?q={{e.dest_ip}}" target="_blank"><span class="mono">ETIntel</span></a>{% endif %}
                       <a href="https://www.virustotal.com/en/ip-address/{{e.dest_ip}}/information/" target="_blank"><span class="mono">VT</span></a>
                     {% else %}
                         <span class="mono">None</span>
@@ -58,7 +58,7 @@
                     {%if e.http.hostname %}
                       {{e.http.hostname}}
                       {% if e.moloch_http_host_url %} <a href={{e.moloch_http_host_url}} target="_blank"><span class="mono">MLCH</span></a>{% endif %}
-                      {% if config.display_et_portal %} <a href="https://portal.emergingthreats.net/search?q={{e.http.hostname}}" target="_blank"><span class="mono">IQRisk</span></a>{% endif %}
+                      {% if config.display_et_portal %} <a href="https://threatintel.proofpoint.com/search?q={{e.http.hostname}}" target="_blank"><span class="mono">ETIntel</span></a>{% endif %}
                       <a href="https://www.virustotal.com/en/domain/{{e.http.hostname}}/information/" target="_blank"><span class="mono">VT</span></a>
                     {% else %}
                         <span class="mono">None</span>
