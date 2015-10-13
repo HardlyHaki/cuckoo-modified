@@ -307,10 +307,12 @@
                                 {% endif %}
                            </td>
                         {% endif %}
-                        {% if config.display_ie_martians %}
+                        {% if config.display_ie_martians or config.display_f_martians %}
                         <td>
                             {% if analysis.mlist_cnt %}
                                 <span class="mono">{{analysis.mlist_cnt}}</span>
+                            {% elif analysis.f_mlist_cnt %}
+                                <span class="mono">{{analysis.f_mlist_cnt}}</span>                            
                             {% else %}
                                   <span class="mono">None</span>
                             {% endif %}

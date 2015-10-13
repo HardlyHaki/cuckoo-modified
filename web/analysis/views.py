@@ -82,7 +82,7 @@ def get_analysis_info(db, id=-1, task=None):
                    {
                        "info": 1, "virustotal_summary": 1, "network.pcap_id":1, 
                        "info.custom":1, "info.shrike_msg":1, "malscore": 1, "malfamily": 1, 
-                       "mlist_cnt": 1
+                       "mlist_cnt": 1, "f_mlist_cnt": 1
                    }, sort=[("_id", pymongo.DESCENDING)]
                )
 
@@ -121,6 +121,8 @@ def get_analysis_info(db, id=-1, task=None):
             new["virustotal_summary"] = rtmp["virustotal_summary"]
         if rtmp.has_key("mlist_cnt") and rtmp["mlist_cnt"]:
             new["mlist_cnt"] = rtmp["mlist_cnt"]
+        if rtmp.has_key("f_mlist_cnt") and rtmp["f_mlist_cnt"]:
+            new["f_mlist_cnt"] = rtmp["f_mlist_cnt"]
         if rtmp.has_key("network") and rtmp["network"].has_key("pcap_id") and rtmp["network"]["pcap_id"]:
             new["pcap_id"] = rtmp["network"]["pcap_id"]
         if rtmp.has_key("info") and rtmp["info"].has_key("custom") and rtmp["info"]["custom"]:
