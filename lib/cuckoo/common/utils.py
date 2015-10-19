@@ -1,4 +1,4 @@
-﻿# Copyright (C) 2010-2015 Cuckoo Foundation, Optiv, Inc. (brad.spengler@optiv.com)
+# Copyright (C) 2010-2015 Cuckoo Foundation, Optiv, Inc. (brad.spengler@optiv.com)
 # This file is part of Cuckoo Sandbox - http://www.cuckoosandbox.org
 # See the file 'docs/LICENSE' for copying permission.
 
@@ -151,6 +151,8 @@ def pretty_print_retval(category, api_name, status, retval):
             0x00002af9 : "WSAHOST_NOT_FOUND",
             0x80000005 : "BUFFER_OVERFLOW",
             0x80000006 : "NO_MORE_FILES",
+            0x8000000a : "HANDLES_CLOSED",
+            0x8000001a : "NO_MORE_ENTRIES",
             0xc0000001 : "UNSUCCESSFUL",
             0xc0000002 : "NOT_IMPLEMENTED",
             0xc0000004 : "INFO_LENGTH_MISMATCH",
@@ -173,12 +175,14 @@ def pretty_print_retval(category, api_name, status, retval):
             0xc0000043 : "SHARING_VIOLATION",
             0xc0000045 : "INVALID_PAGE_PROTECTION",
             0xc000007a : "PROCEDURE_NOT_FOUND",
+            0xc00000ac : "PIPE_NOT_AVAILABLE",
             0xc00000ba : "FILE_IS_A_DIRECTORY",
             0xc000010a : "PROCESS_IS_TERMINATING",
             0xc0000121 : "CANNOT_DELETE",
             0xc0000135 : "DLL_NOT_FOUND",
             0xc0000139 : "ENTRYPOINT_NOT_FOUND",
             0xc0000142 : "DLL_INIT_FAILED",
+            0xc000014b : "PIPE_BROKEN",
             0xc0000225 : "NOT_FOUND"
     }.get(val, None)
 

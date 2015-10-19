@@ -1,4 +1,4 @@
-﻿import json
+import json
 import os
 import re
 import socket
@@ -25,8 +25,9 @@ from bson.objectid import ObjectId
 sys.path.append(settings.CUCKOO_PATH)
 from lib.cuckoo.common.config import Config
 from lib.cuckoo.common.constants import CUCKOO_ROOT, CUCKOO_VERSION
-from lib.cuckoo.common.utils import store_temp_file, delete_folder
 from lib.cuckoo.common.quarantine import unquarantine
+from lib.cuckoo.common.utils import store_temp_file, delete_folder
+from lib.cuckoo.common.utils import convert_to_printable
 from lib.cuckoo.core.database import Database, Task
 from lib.cuckoo.core.database import TASK_RUNNING, TASK_REPORTED
 
@@ -299,7 +300,7 @@ def tasks_create_file(request):
                                       )
                 if task_ids_new:
                     task_ids.extend(task_ids_new)
-                    
+
         if len(task_ids) > 0:
             resp["task_ids"] = task_ids
             callback = apiconf.filecreate.get("status")
@@ -562,7 +563,7 @@ if apiconf.fileview.get("enabled"):
     rateblock = True
 @ratelimit(key="ip", rate=raterps, block=rateblock)
 @ratelimit(key="ip", rate=raterpm, block=rateblock)
-def files_view(request, md5=None, sha256=None, sample_id=None):
+def files_view(request, md5=None, sha1=None, sha256=None, sample_id=None):
     if request.method != "GET":
         resp = {"error": True, "error_value": "Method not allowed"}
         return jsonize(resp, response=True)
@@ -573,7 +574,7 @@ def files_view(request, md5=None, sha256=None, sample_id=None):
         return jsonize(resp, response=True)
 
     resp = {}
-    if md5 or sha256 or sample_id:
+    if md5 or sha1 or sha256 or sample_id:
         resp["error"] = False
         if md5:
             if not apiconf.fileview.get("md5"):
@@ -582,17 +583,24 @@ def files_view(request, md5=None, sha256=None, sample_id=None):
                 return jsonize(resp, response=True)
 
             sample = db.find_sample(md5=md5)
-        if sha256:
+        elif sha1:
+            if not apiconf.fileview.get("sha1"):
+                resp = {"error": True,
+                        "error_value": "File View by SHA1 is Disabled"}
+                return jsonize(resp, response=True)
+
+            sample = db.find_sample(sha1=sha1)
+        elif sha256:
             if not apiconf.fileview.get("sha256"):
                 resp = {"error": True,
-                        "error_value": "File View by MD5 is Disabled"}
+                        "error_value": "File View by SHA256 is Disabled"}
                 return jsonize(resp, response=True)
 
             sample = db.find_sample(sha256=sha256)
-        if sample_id:
+        elif sample_id:
             if not apiconf.fileview.get("id"):
                 resp = {"error": True,
-                        "error_value": "File View by MD5 is Disabled"}
+                        "error_value": "File View by ID is Disabled"}
                 return jsonize(resp, response=True)
 
             sample = db.view_sample(sample_id)
@@ -609,7 +617,7 @@ if apiconf.tasksearch.get("enabled"):
     rateblock = True
 @ratelimit(key="ip", rate=raterps, block=rateblock)
 @ratelimit(key="ip", rate=raterpm, block=rateblock)
-def tasks_search(request, md5=None, sha256=None):
+def tasks_search(request, md5=None, sha1=None, sha256=None):
     resp = {}
     if request.method != "GET":
         resp = {"error": True, "error_value": "Method not allowed"}
@@ -620,7 +628,7 @@ def tasks_search(request, md5=None, sha256=None):
                 "error_value": "Task Search API is Disabled"}
         return jsonize(resp, response=True)
 
-    if md5 or sha256:
+    if md5 or sha1 or sha256:
         resp["error"] = False
         if md5:
             if not apiconf.tasksearch.get("md5"):
@@ -629,7 +637,14 @@ def tasks_search(request, md5=None, sha256=None):
                 return jsonize(resp, response=True)
 
             sample = db.find_sample(md5=md5)
-        if sha256:
+        elif sha1:
+            if not apiconf.tasksearch.get("sha1"):
+                resp = {"error": True,
+                        "error_value": "Task Search by SHA1 is Disabled"}
+                return jsonize(resp, response=True)
+
+            sample = db.find_sample(sha1=sha1)
+        elif sha256:
             if not apiconf.tasksearch.get("sha256"):
                 resp = {"error": True,
                         "error_value": "Task Search by SHA256 is Disabled"}
@@ -899,6 +914,9 @@ def tasks_list(request, offset=None, limit=None, window=None):
         if row.sample_id:
             sample = db.view_sample(row.sample_id)
             task["sample"] = sample.to_dict()
+
+        if task["target"]:
+            task["target"] = convert_to_printable(task["target"])
 
         resp["data"].append(task)
     return jsonize(resp, response=True)
@@ -1180,9 +1198,12 @@ def tasks_iocs(request, task_id, detail=None):
     data["malscore"] = buf["malscore"]
     data["info"] = buf["info"]
     del data["info"]["custom"]
-    del data["info"]["machine"]["manager"]
-    del data["info"]["machine"]["label"]
-    del data["info"]["machine"]["id"]
+    # The machines key won't exist in cases where an x64 binary is submitted
+    # when there are no x64 machines.
+    if "machine" in data["info"]:
+        del data["info"]["machine"]["manager"]
+        del data["info"]["machine"]["label"]
+        del data["info"]["machine"]["id"]
     data["signatures"] = []
     # Grab sigs
     for sig in buf["signatures"]:
@@ -1201,13 +1222,14 @@ def tasks_iocs(request, task_id, detail=None):
     data["network"] = {}
     if "network" in buf.keys():
         data["network"]["traffic"] = {}
-        data["network"]["traffic"]["tcp"] = len(buf["network"]["tcp"])
-        data["network"]["traffic"]["udp"] = len(buf["network"]["udp"])
-        data["network"]["traffic"]["irc"] = len(buf["network"]["irc"])
-        data["network"]["traffic"]["dns"] = len(buf["network"]["dns"])
-        data["network"]["traffic"]["http"] = len(buf["network"]["http"])
-        data["network"]["traffic"]["smtp"] = len(buf["network"]["smtp"])
+        for netitem in ["tcp", "udp", "irc", "http", "dns", "smtp", "hosts", "domains"]:
+            if netitem in buf["network"]:
+                data["network"]["traffic"][netitem + "_count"] = len(buf["network"][netitem])
+            else:
+                data["network"]["traffic"][netitem + "_count"] = 0
+        data["network"]["traffic"]["http"] = buf["network"]["http"]
         data["network"]["hosts"] = buf["network"]["hosts"]
+        data["network"]["domains"] = buf["network"]["domains"]
     data["network"]["ids"] = {}
     if "suricata" in buf.keys():
         if "alerts" in buf["suricata"].keys():
@@ -1218,7 +1240,6 @@ def tasks_iocs(request, task_id, detail=None):
             data["network"]["ids"]["totalfiles"] = len(buf["suricata"]["files"])
         if "tls" in buf["suricata"].keys():
             data["network"]["ids"]["tls"] = buf["suricata"]["tls"]
-
     data["static"] = {}
     if "static" in buf.keys():
         pe = {}
@@ -1276,6 +1297,10 @@ def tasks_iocs(request, task_id, detail=None):
     if not detail:
         resp = {"error": False, "data": data}
         return jsonize(resp, response=True)
+
+    if "static" in buf:
+        if "pe_versioninfo" in buf["static"] and buf["static"]["pe_versioninfo"]:
+            data["static"]["pe"]["pe_versioninfo"] = buf["static"]["pe_versioninfo"]
 
     if "behavior" in buf and "summary" in buf["behavior"]:
         if "read_files" in buf["behavior"]["summary"]:
@@ -1691,14 +1716,16 @@ def get_files(request, stype, value):
 
     if stype == "md5":
         file_hash = db.find_sample(md5=value).to_dict()["sha256"]
-    if stype == "task":
+    elif stype == "sha1":
+        file_hash = db.find_sample(sha1=value).to_dict()["sha256"]
+    elif stype == "task":
         check = validate_task(value)
         if check["error"]:
             return jsonize(check, response=True)
 
         sid = db.view_task(value).to_dict()["sample_id"]
         file_hash = db.view_sample(sid).to_dict()["sha256"]
-    if stype == "sha256":
+    elif stype == "sha256":
         file_hash = value
     sample = os.path.join(CUCKOO_ROOT, "storage", "binaries", file_hash)
     if os.path.exists(sample):
