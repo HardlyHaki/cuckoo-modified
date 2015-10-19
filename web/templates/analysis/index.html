@@ -45,13 +45,16 @@
                     {% if config.moloch %}
                         <th width="5%">Moloch</th>
                     {% endif %}
+                    {% if config.display_f_martians %}
+                        <th width="5%">Martians</th>
+                    {% endif %}
                     <th width="3%">PCAP</th>
                     <th width="5%">MalScore</th>
                     <th width="5%">Custom</th>
                     {% if config.display_shrike %}
                         <th width="5%">Shrike</th>
                     {% endif %}
-                    <th width="5%" style="text-align: right;">Status</th>
+                    <th width="3%" style="text-align: right;">Status</th>
                 </tr>
                 </thead>
                 <tbody>
@@ -126,6 +129,15 @@
                                    <span class="mono">None</span>
                                 {% endif %}
                            </td>
+                        {% endif %}
+                        {% if config.display_f_martians %}
+                        <td>
+                            {% if analysis.f_mlist_cnt %}
+                                <span class="mono">{{analysis.f_mlist_cnt}}</span>
+                            {% else %}
+                                  <span class="mono">None</span>
+                            {% endif %}
+                        </td>
                         {% endif %}
                         <td>
                             {% if analysis.pcap_id %}
@@ -255,11 +267,13 @@
                     {% endif %}
                     <th width="3%">PCAP</th>
                     <th width="5%">MalScore</th>
-                    <th width="5%">Custom</th>
                     {% if config.display_shrike %}
+                        <th width="5%">Custom</th>
                         <th width="5%">Shrike</th>
+                    {% else %}
+                        <th width="10%">Custom</th>
                     {% endif %}
-                    <th width="5%" style="text-align: right;">Status</th>
+                    <th width="3%" style="text-align: right;">Status</th>
                 </tr>
                 </thead>
                 <tbody>

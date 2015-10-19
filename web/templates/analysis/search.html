@@ -213,7 +213,7 @@
                     <th width="5%">SuriHTTP</th>
                     <th width="5%">SuriTLS</th>
                     <th width="5%">SuriFiles</th>
-                    {% if config.moloch_enabled %}
+                    {% if config.moloch %}
                         <th width="5%">Moloch</th>
                     {% endif %}
                     {% if config.display_ie_martians %}
@@ -261,7 +261,6 @@
                                 {% endif %}
                             {% endif %}
                         </td>
-                        {% if config.moloch %}
                         <td>
                             {% if analysis.virustotal_summary %}
                                 <a href="{% url "analysis.views.antivirus" analysis.id %}" target="_blank"><span class="mono">{{analysis.virustotal_summary}}</span></a>
@@ -269,7 +268,6 @@
                                 <span class="mono">None</span>
                             {% endif %}
                         </td>
-                        {% endif %}
                         {% if config.suricata %}
                         <td>
                             {% if analysis.suri_alert_cnt %}
@@ -285,7 +283,6 @@
                                 <span class="mono">None</span>
                             {% endif %}
                         </td>
-                        {% endif %}
                         <td>
                             {% if analysis.suri_tls_cnt %}
                                 <a href="{% url "analysis.views.suritls" analysis.id %}" target="_blank"><span class="mono">Suri_TLS:{{analysis.suri_tls_cnt}}</span></a>
@@ -300,10 +297,22 @@
                                 <span class="mono">None</span>
                             {% endif %}
                         </td>
-                        {% if config.display_ie_martians %}
+                        {% endif %}
+                        {% if config.moloch %}
+                            <td>
+                                {% if analysis.moloch_url %}
+                                    <a href={{analysis.moloch_url}} target="_blank"><span class="mono">MOLOCH</span></a>
+                                {% else %}
+                                   <span class="mono">None</span>
+                                {% endif %}
+                           </td>
+                        {% endif %}
+                        {% if config.display_ie_martians or config.display_f_martians %}
                         <td>
                             {% if analysis.mlist_cnt %}
                                 <span class="mono">{{analysis.mlist_cnt}}</span>
+                            {% elif analysis.f_mlist_cnt %}
+                                <span class="mono">{{analysis.f_mlist_cnt}}</span>                            
                             {% else %}
                                   <span class="mono">None</span>
                             {% endif %}

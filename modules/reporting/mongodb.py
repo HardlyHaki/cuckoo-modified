@@ -257,6 +257,9 @@ class MongoDB(Report):
             for entry in results["signatures"]:
                 if entry["name"] == "ie_martian_children":
                     report["mlist_cnt"] = len(entry["data"])
+                if entry["name"] == "office_martian_children":
+                    report["f_mlist_cnt"] = len(entry["data"])
+                    print "office martian count %s" % (report["f_mlist_cnt"])
 
         #Other info we want Quick access to from the web UI
         if results.has_key("virustotal") and results["virustotal"] and results["virustotal"].has_key("positives") and results["virustotal"].has_key("total"):
