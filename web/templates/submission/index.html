@@ -125,6 +125,7 @@ $(document).ready( function() {
                                 <label for="form_gateway">Gateway</label>
                                 <select class="form-control" id="form_gateway" name="gateway">
                                 <option value="" active>Default</option>
+                                <option value="All">All</option>
                                 {% for k,v in gateways.items %}
                                     <option value="{{k}}">{{k}}</option>
                                 {% endfor %}

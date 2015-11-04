@@ -40,8 +40,9 @@ def index(request):
         custom = request.POST.get("custom", "")
         memory = bool(request.POST.get("memory", False))
         enforce_timeout = bool(request.POST.get("enforce_timeout", False))
-
+        task_gateways = []
         tags = request.POST.get("tags", None)
+        ipaddy_re = re.compile(r"^(?:(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.){3}(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)$");
 
         if request.POST.get("free"):
             if options:
@@ -67,16 +68,18 @@ def index(request):
                 options += ","
             options += "kernel_analysis=yes"
 
-        if gateway and gateway in settings.GATEWAYS:
+        if gateway.lower() == "all":
+            for e in settings.GATEWAYS:
+                if ipaddy_re.match(settings.GATEWAYS[e]):
+                    task_gateways.append(settings.GATEWAYS[e])
+                
+        elif gateway and gateway in settings.GATEWAYS:
             if "," in settings.GATEWAYS[gateway]:
                 tgateway = random.choice(settings.GATEWAYS[gateway].split(","))
-                ngateway = settings.GATEWAYS[tgateway]
+                task_gateways.append(settings.GATEWAYS[tgateway])
             else:
-                ngateway = settings.GATEWAYS[gateway]
-            if options:
-                options += ","
-            options += "setgw=%s" % (ngateway)
-
+                task_gateways.append(settings.GATEWAYS[gateway])
+       
         db = Database()
         task_ids = []
         task_machines = []
@@ -154,22 +157,44 @@ def index(request):
                 if options:
                     options += ","
                 options += "norefer=yes"
-
+            
             url = url.replace("hxxps://", "https://").replace("hxxp://", "http://").replace("[.]", ".")
-            for entry in task_machines:
-                task_id = db.add_url(url=url,
-                                     package=package,
-                                     timeout=timeout,
-                                     options=options,
-                                     priority=priority,
-                                     machine=entry,
-                                     custom=custom,
-                                     memory=memory,
-                                     enforce_timeout=enforce_timeout,
-                                     tags=tags,
-                                     clock=clock)
-                if task_id:
-                    task_ids.append(task_id)
+            if task_gateways:
+                for gw in task_gateways:
+                    if options:
+                        options += ","
+                    options += "setgw=%s" % (gw)
+
+                    for entry in task_machines:
+                        task_id = db.add_url(url=url,
+                                             package=package,
+                                             timeout=timeout,
+                                             options=options,
+                                             priority=priority,
+                                             machine=entry,
+                                             custom=custom,
+                                             memory=memory,
+                                             enforce_timeout=enforce_timeout,
+                                             tags=tags,
+                                             clock=clock)
+                        if task_id:
+                            task_ids.append(task_id)
+            else:
+                for entry in task_machines:
+                    task_id = db.add_url(url=url,
+                                         package=package,
+                                         timeout=timeout,
+                                         options=options,
+                                         priority=priority,
+                                         machine=entry,
+                                         custom=custom,
+                                         memory=memory,
+                                         enforce_timeout=enforce_timeout,
+                                         tags=tags,
+                                         clock=clock)
+                    if task_id:
+                        task_ids.append(task_id)
+
         elif settings.VTDL_ENABLED and "vtdl" in request.POST:
             vtdl = request.POST.get("vtdl").strip()
             if (not settings.VTDL_PRIV_KEY and not settings.VTDL_INTEL_KEY) or not settings.VTDL_PATH:
