@@ -1062,7 +1062,7 @@ class Database(object):
     @classlock
     def list_tasks(self, limit=None, details=False, category=None,
                    offset=None, status=None, sample_id=None, not_status=None,
-                   completed_after=None, order_by=None):
+                   completed_after=None, order_by=None,added_before=None):
         """Retrieve list of task.
         @param limit: specify a limit of entries.
         @param details: if details about must be included
@@ -1091,7 +1091,8 @@ class Database(object):
                 search = search.filter_by(sample_id=sample_id)
             if completed_after:
                 search = search.filter(Task.completed_on > completed_after)
-
+            if added_before:
+                search = search.filter(Task.added_on < added_before)
             if order_by is not None:
                 search = search.order_by(order_by)
             else:
