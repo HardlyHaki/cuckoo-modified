@@ -4,10 +4,12 @@
 
 import sys
 import os
+import re
 
 # Cuckoo path.
 CUCKOO_PATH = os.path.join(os.getcwd(), "..")
 sys.path.append(CUCKOO_PATH)
+ipaddy_re = re.compile(r"^(?:(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.){3}(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)$");
 
 from lib.cuckoo.common.config import Config
 
@@ -53,6 +55,14 @@ VTDL_PATH = vtdl_cfg.get("dlpath",None)
 TOR_ENABLED = tor_cfg.get("enabled",False)
 #DISPLAY_SHRIKE = display_shrike_cfg.get("enabled",False)
 #DISPLAY_ET_PORTAL = display_et_portal_cfg.get("enabled",False)
+
+if GATEWAYS:
+    GATEWAYS_IP_MAP = {}
+    for e in GATEWAYS:
+        if "," in e:
+            continue
+        elif ipaddy_re.match(GATEWAYS[e]):
+            GATEWAYS_IP_MAP[GATEWAYS[e]]=e  
 
 # Enabled/Disable Zer0m0n tickbox on the submission page
 OPT_ZER0M0N = False

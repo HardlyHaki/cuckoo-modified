@@ -40,9 +40,15 @@ def index(request):
         custom = request.POST.get("custom", "")
         memory = bool(request.POST.get("memory", False))
         enforce_timeout = bool(request.POST.get("enforce_timeout", False))
+        referer = request.POST.get("referer", None)
         task_gateways = []
         tags = request.POST.get("tags", None)
         ipaddy_re = re.compile(r"^(?:(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.){3}(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)$");
+
+        if referer:
+            if options:
+                options += ","
+            options += "referer=%s" % (referer)
 
         if request.POST.get("free"):
             if options:
@@ -68,6 +74,7 @@ def index(request):
                 options += ","
             options += "kernel_analysis=yes"
 
+
         if gateway.lower() == "all":
             for e in settings.GATEWAYS:
                 if ipaddy_re.match(settings.GATEWAYS[e]):
@@ -75,8 +82,13 @@ def index(request):
                 
         elif gateway and gateway in settings.GATEWAYS:
             if "," in settings.GATEWAYS[gateway]:
-                tgateway = random.choice(settings.GATEWAYS[gateway].split(","))
-                task_gateways.append(settings.GATEWAYS[tgateway])
+                if request.POST.get("all_gw_in_group"):
+                    tgateway = settings.GATEWAYS[gateway].split(",")
+                    for e in tgateway:
+                         task_gateways.append(settings.GATEWAYS[e]) 
+                else:
+                    tgateway = random.choice(settings.GATEWAYS[gateway].split(","))
+                    task_gateways.append(settings.GATEWAYS[tgateway])
             else:
                 task_gateways.append(settings.GATEWAYS[gateway])
        
@@ -105,11 +117,25 @@ def index(request):
                 # let it persist between reboot (if user like to configure it in that way).
                 path = store_temp_file(sample.read(),
                                        sample.name)
-                os.chmod(path, 0664) 
-                for entry in task_machines:
-                    task_ids_new = db.demux_sample_and_add_to_db(file_path=path, package=package, timeout=timeout, options=options, priority=priority,
-                                                                 machine=entry, custom=custom, memory=memory, enforce_timeout=enforce_timeout, tags=tags, clock=clock)
-                    task_ids.extend(task_ids_new)
+                os.chmod(path, 0664)
+                if task_gateways:
+                    for gw in task_gateways:
+                        if options:
+                            options += ","
+                        options += "setgw=%s" % (gw)
+                        if settings.GATEWAYS_IP_MAP.has_key(gw) and settings.GATEWAYS_IP_MAP[gw]:
+                                    options += ",gwname=%s" % (settings.GATEWAYS_IP_MAP[gw])
+
+                        for entry in task_machines:
+                            task_ids_new = db.demux_sample_and_add_to_db(file_path=path, package=package, timeout=timeout, options=options, priority=priority,
+                                                                         machine=entry, custom=custom, memory=memory, enforce_timeout=enforce_timeout, tags=tags, clock=clock)
+                            task_ids.extend(task_ids_new)
+
+                else:
+                    for entry in task_machines:
+                        task_ids_new = db.demux_sample_and_add_to_db(file_path=path, package=package, timeout=timeout, options=options, priority=priority,
+                                                                     machine=entry, custom=custom, memory=memory, enforce_timeout=enforce_timeout, tags=tags, clock=clock)
+                        task_ids.extend(task_ids_new)
         elif "quarantine" in request.FILES:
             for sample in request.FILES.getlist("quarantine"):
                 if sample.size == 0:
@@ -136,7 +162,7 @@ def index(request):
                     return render_to_response("error.html",
                                               {"error": "You uploaded an unsupported quarantine file."},
                                               context_instance=RequestContext(request))
-
+                 
                 for entry in task_machines:
                     task_ids_new = db.demux_sample_and_add_to_db(file_path=path, package=package, timeout=timeout, options=options, priority=priority,
                                                                  machine=entry, custom=custom, memory=memory, enforce_timeout=enforce_timeout, tags=tags, clock=clock)
@@ -164,7 +190,8 @@ def index(request):
                     if options:
                         options += ","
                     options += "setgw=%s" % (gw)
-
+                    if settings.GATEWAYS_IP_MAP.has_key(gw) and settings.GATEWAYS_IP_MAP[gw]:
+                        options += ",gwname=%s" % (settings.GATEWAYS_IP_MAP[gw])
                     for entry in task_machines:
                         task_id = db.add_url(url=url,
                                              package=package,
@@ -236,11 +263,23 @@ def index(request):
                                               context_instance=RequestContext(request))
 
                         onesuccess = True
+                        if task_gateways:
+                            for gw in task_gateways:
+                                if options:
+                                    options += ","
+                                options += "setgw=%s" % (gw)
+                                if settings.GATEWAYS_IP_MAP.has_key(gw) and settings.GATEWAYS_IP_MAP[gw]:
+                                    options += ",gwname=%s" % (settings.GATEWAYS_IP_MAP[gw])
 
-                        for entry in task_machines:
-                            task_ids_new = db.demux_sample_and_add_to_db(file_path=filename, package=package, timeout=timeout, options=options, priority=priority,
-                                                                         machine=entry, custom=custom, memory=memory, enforce_timeout=enforce_timeout, tags=tags, clock=clock)
-                            task_ids.extend(task_ids_new)
+                                for entry in task_machines:
+                                    task_ids_new = db.demux_sample_and_add_to_db(file_path=filename, package=package, timeout=timeout, options=options, priority=priority,
+                                                                                 machine=entry, custom=custom, memory=memory, enforce_timeout=enforce_timeout, tags=tags, clock=clock)
+                                    task_ids.extend(task_ids_new)
+                        else:
+                            for entry in task_machines:
+                                task_ids_new = db.demux_sample_and_add_to_db(file_path=filename, package=package, timeout=timeout, options=options, priority=priority,
+                                                                           machine=entry, custom=custom, memory=memory, enforce_timeout=enforce_timeout, tags=tags, clock=clock)
+                                task_ids.extend(task_ids_new)
                     elif r.status_code == 403:
                         return render_to_response("error.html",
                                                   {"error": "API key provided is not a valid VirusTotal key or is not authorized for VirusTotal downloads"},

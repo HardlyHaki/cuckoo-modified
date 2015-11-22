@@ -360,7 +360,7 @@ def tasks_create_url(request):
         shrike_sid = request.POST.get("shrike_sid", None)
         shrike_refer = request.POST.get("shrike_refer", None)
         gateway = request.POST.get("gateway",None)
-
+        referer = request.POST.get("referer",None)
         if not url:
             resp = {"error": True, "error_value": "URL value is empty"}
             return jsonize(resp, response=True)
@@ -380,6 +380,11 @@ def tasks_create_url(request):
                 options += ","
             options += "setgw=%s" % (ngateway)
 
+        if referer:
+            if options:
+                options += ","
+            options += "referer=%s" % (referer)
+            
         task_id = db.add_url(url=url,
                              package=package,
                              timeout=timeout,

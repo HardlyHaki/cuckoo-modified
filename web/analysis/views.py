@@ -167,7 +167,6 @@ def get_analysis_info(db, id=-1, task=None):
             if settings.MOLOCH_BASE[-1] != "/":
                 settings.MOLOCH_BASE = settings.MOLOCH_BASE + "/"
             new["moloch_url"] = settings.MOLOCH_BASE + "?date=-1&expression=tags" + quote("\x3d\x3d\x22%s\x3a%s\x22" % (settings.MOLOCH_NODE,new["id"]),safe='')
-
     return new
 
 @require_safe
