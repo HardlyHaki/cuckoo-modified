@@ -542,6 +542,7 @@ class RunSignatures(object):
                             "known",
                             "common",
                             "troj",
+                            "trojan",
                             "team",
                             "probably",
                             "w2km",
@@ -555,6 +556,10 @@ class RunSignatures(object):
                         if isgood:
                             famcheck = famcheck.split(".")[0]
                             family = famcheck.title()
+
+        # fall back to ClamAV detection
+        if not family and self.results["info"]["category"] == "file" and "clamav" in self.results["target"]["file"] and self.results["target"]["file"]["clamav"] and self.results["target"]["file"]["clamav"].startswith("Win.Trojan."):
+            family = self.results["target"]["file"]["clamav"][11:]
 
         self.results["malfamily"] = family
 

@@ -3,12 +3,17 @@
 # See the file 'docs/LICENSE' for copying permission.
 
 import json
+from lib.cuckoo.common.utils import store_temp_file
 import lib.cuckoo.common.office.olefile as olefile
 import lib.cuckoo.common.office.vbadeobf as vbadeobf
 import lib.cuckoo.common.decoders.darkcomet as darkcomet
 import lib.cuckoo.common.decoders.njrat as njrat
+import lib.cuckoo.common.decoders.nanocore as nanocore
+import lib.cuckoo.common.decoders.alienspy as alienspy
+import lib.cuckoo.common.decoders.qrat as qrat
 import logging
 import os
+import re
 import math
 import array
 import base64
@@ -45,6 +50,12 @@ try:
     HAVE_CRYPTO = True
 except ImportError:
     HAVE_CRYPTO = False
+
+try:
+    from whois import whois
+    HAVE_WHOIS = True
+except:
+    HAVE_WHOIS = False
 
 from lib.cuckoo.common.abstracts import Processing
 from lib.cuckoo.common.constants import CUCKOO_ROOT
@@ -226,10 +237,11 @@ class DotNETExecutable(object):
         results = { }
 
         pretime = datetime.now()
-        results["dotnet_typerefs"] = self._get_type_refs()
-        results["dotnet_assemblyrefs"] = self._get_assembly_refs()
-        results["dotnet_assemblyinfo"] = self._get_assembly_info()
-        results["dotnet_customattrs"] = self._get_custom_attrs()
+        results["dotnet"] = { }
+        results["dotnet"]["typerefs"] = self._get_type_refs()
+        results["dotnet"]["assemblyrefs"] = self._get_assembly_refs()
+        results["dotnet"]["assemblyinfo"] = self._get_assembly_info()
+        results["dotnet"]["customattrs"] = self._get_custom_attrs()
         posttime = datetime.now()
         timediff = posttime - pretime
         self.add_statistic("static_dotnet", "time", float("%d.%03d" % (timediff.seconds, timediff.microseconds / 1000)))
@@ -649,6 +661,31 @@ class PortableExecutable(object):
 
         return datetime.fromtimestamp(pe_timestamp).strftime("%Y-%m-%d %H:%M:%S")
 
+    def _get_guest_digital_signers(self):
+        retdata = dict()
+        cert_data = dict()
+        cert_info = os.path.join(CUCKOO_ROOT, "storage", "analyses",
+                                 str(self.results["info"]["id"]), "aux",
+                                 "DigiSig.json")
+
+        if os.path.exists(cert_info):
+            with open(cert_info, "r") as cert_file:
+                buf = cert_file.read()
+            if buf:
+                cert_data = json.loads(buf)
+
+        if cert_data:
+            retdata = {
+                "aux_sha1": cert_data["sha1"],
+                "aux_timestamp": cert_data["timestamp"],
+                "aux_valid": cert_data["valid"],
+                "aux_error": cert_data["error"],
+                "aux_error_desc": cert_data["error_desc"],
+                "aux_signers": cert_data["signers"]
+            }
+
+        return retdata
+
     def _get_digital_signers(self):
         if not self.pe:
             return None
@@ -679,7 +716,12 @@ class PortableExecutable(object):
                             md5_fingerprint = cert.get_fingerprint('md5').lower()
                             subject_str = str(cert.get_subject())
                             cn = subject_str[subject_str.index("/CN=")+len("/CN="):]
-                            retlist.append({"sn":str(sn), "cn":cn, "sha1_fingerprint" : sha1_fingerprint, "md5_fingerprint" : md5_fingerprint })
+                            retlist.append({
+                                "sn": str(sn),
+                                "cn": cn,
+                                "sha1_fingerprint": sha1_fingerprint,
+                                "md5_fingerprint": md5_fingerprint
+                            })
 
         return retlist
 
@@ -696,44 +738,58 @@ class PortableExecutable(object):
             return None
 
         results = {}
+        peresults = results["pe"] = { }
 
         pretime = datetime.now()
-        results["peid_signatures"] = self._get_peid_signatures()
+        peresults["peid_signatures"] = self._get_peid_signatures()
         posttime = datetime.now()
         timediff = posttime - pretime
         self.add_statistic("peid", "time", float("%d.%03d" % (timediff.seconds, timediff.microseconds / 1000)))
 
-        results["pe_imagebase"] = self._get_imagebase()
-        results["pe_entrypoint"] = self._get_entrypoint()
-        results["pe_reported_checksum"] = self._get_reported_checksum()
-        results["pe_actual_checksum"] = self._get_actual_checksum()
-        results["pe_osversion"] = self._get_osversion()
-        results["pe_pdbpath"] = self._get_pdb_path()
-        results["pe_imports"] = self._get_imported_symbols()
-        results["pe_exported_dll_name"] = self._get_exported_dll_name()
-        results["pe_exports"] = self._get_exported_symbols()
-        results["pe_dirents"] = self._get_directory_entries()
-        results["pe_sections"] = self._get_sections()
-        results["pe_overlay"] = self._get_overlay()
-        results["pe_resources"] = self._get_resources()
-        results["pe_icon"], results["pe_icon_hash"], results["pe_icon_fuzzy"] = self._get_icon_info()
-        results["pe_versioninfo"] = self._get_versioninfo()
-        results["pe_imphash"] = self._get_imphash()
-        results["pe_timestamp"] = self._get_timestamp()
-        results["digital_signers"] = self._get_digital_signers()
-        results["imported_dll_count"] = len([x for x in results["pe_imports"] if x.get("dll")])
+        peresults["imagebase"] = self._get_imagebase()
+        peresults["entrypoint"] = self._get_entrypoint()
+        peresults["reported_checksum"] = self._get_reported_checksum()
+        peresults["actual_checksum"] = self._get_actual_checksum()
+        peresults["osversion"] = self._get_osversion()
+        peresults["pdbpath"] = self._get_pdb_path()
+        peresults["imports"] = self._get_imported_symbols()
+        peresults["exported_dll_name"] = self._get_exported_dll_name()
+        peresults["exports"] = self._get_exported_symbols()
+        peresults["dirents"] = self._get_directory_entries()
+        peresults["sections"] = self._get_sections()
+        peresults["overlay"] = self._get_overlay()
+        peresults["resources"] = self._get_resources()
+        peresults["icon"], peresults["icon_hash"], peresults["icon_fuzzy"] = self._get_icon_info()
+        peresults["versioninfo"] = self._get_versioninfo()
+        peresults["imphash"] = self._get_imphash()
+        peresults["timestamp"] = self._get_timestamp()
+        peresults["digital_signers"] = self._get_digital_signers()
+        peresults["guest_signers"] = self._get_guest_digital_signers()
+        peresults["imported_dll_count"] = len([x for x in peresults["imports"] if x.get("dll")])
 
-        
         pretime = datetime.now()
+        ratname = None
+        ratconfig = None
         darkcomet_config = darkcomet.extract_config(self.file_path, self.pe)
         if darkcomet_config:
-            results["darkcomet_config"] = darkcomet_config
+            ratname = "DarkComet"
+            ratconfig = darkcomet_config
         njrat_config = njrat.extract_config(self.file_path)
         if njrat_config:
-            results["njrat_config"] = njrat_config
+            ratname = "njRAT"
+            ratconfig = njrat_config
+        nanocore_config = nanocore.extract_config(self.pe)
+        if nanocore_config:
+            ratname = "NanoCore"
+            ratconfig = nanocore_config
         posttime = datetime.now()
         timediff = posttime - pretime
         self.add_statistic("config_decoder", "time", float("%d.%03d" % (timediff.seconds, timediff.microseconds / 1000)))
+
+        if ratname:
+            results["rat"] = { }
+            results["rat"]["name"] = ratname
+            results["rat"]["config"] = ratconfig
 
         return results
 
@@ -818,9 +874,10 @@ class PDF(object):
             keywords[str(keyword['name'])] = keyword['count']
 
         result = {}
-        result["Info"] = info
-        result["Dates"] = dates
-        result["Keywords"] = keywords
+        pdfresult = result["pdf"] = { }
+        pdfresult["Info"] = info
+        pdfresult["Dates"] = dates
+        pdfresult["Keywords"] = keywords
 
         log.debug("About to parse with PDFParser")
         parser = PDFParser()
@@ -910,19 +967,19 @@ class PDF(object):
                     #obj_data["Data"] = "Encoded"
                     #retobjects.append(obj_data)
 
-            result["JSStreams"] = retobjects
+            pdfresult["JSStreams"] = retobjects
 
         if "creator" in metadata:
-            result["Info"]["Creator"] = convert_to_printable(self._clean_string(metadata["creator"]))
+            pdfresult["Info"]["Creator"] = convert_to_printable(self._clean_string(metadata["creator"]))
         if "producer" in metadata:
-            result["Info"]["Producer"] = convert_to_printable(self._clean_string(metadata["producer"]))
+            pdfresult["Info"]["Producer"] = convert_to_printable(self._clean_string(metadata["producer"]))
         if "author" in metadata:
-            result["Info"]["Author"] = convert_to_printable(self._clean_string(metadata["author"]))
+            pdfresult["Info"]["Author"] = convert_to_printable(self._clean_string(metadata["author"]))
 
         if len(urlset):
-            result["JS_URLs"] = list(urlset)
+            pdfresult["JS_URLs"] = list(urlset)
         if len(annoturiset):
-            result["Annot_URLs"] = list(annoturiset)
+            pdfresult["Annot_URLs"] = list(annoturiset)
 
         return result
 
@@ -940,7 +997,6 @@ class Office(object):
     """Office Document Static Analysis"""
     def __init__(self, file_path):
         self.file_path = file_path
-        self.office = None
 
     # Parse a string-casted datetime object that olefile returns. This will parse
     # multiple types of timestamps including when a date is provide without a
@@ -990,79 +1046,84 @@ class Office(object):
             vba = VBA_Parser(filepath)
         except:
             return results
-        results["Metadata"] = dict()
+
+        officeresults = results["office"] = { }
+
+        metares = officeresults["Metadata"] = dict()
         # The bulk of the metadata checks are in the OLE Structures
         # So don't check if we're dealing with XML.
         if olefile.isOleFile(filepath):
             ole = olefile.OleFileIO(filepath)
             meta = ole.get_metadata()
-            results["Metadata"] = meta.get_meta()
+            # must be left this way or we won't see the results
+            officeresults["Metadata"] = meta.get_meta()
+            metares = officeresults["Metadata"]
             # Fix up some output formatting
-            buf = self.convert_dt_string(results["Metadata"]["SummaryInformation"]["create_time"])
-            results["Metadata"]["SummaryInformation"]["create_time"] = buf
-            buf = self.convert_dt_string(results["Metadata"]["SummaryInformation"]["last_saved_time"])
-            results["Metadata"]["SummaryInformation"]["last_saved_time"] = buf
+            buf = self.convert_dt_string(metares["SummaryInformation"]["create_time"])
+            metares["SummaryInformation"]["create_time"] = buf
+            buf = self.convert_dt_string(metares["SummaryInformation"]["last_saved_time"])
+            metares["SummaryInformation"]["last_saved_time"] = buf
             ole.close()
         if vba.detect_vba_macros():
-            results["Metadata"]["HasMacros"] = "Yes"
-            results["Macro"] = dict()
-            results["Macro"]["Code"] = dict()
+            metares["HasMacros"] = "Yes"
+            macrores = officeresults["Macro"] = dict()
+            macrores["Code"] = dict()
             ctr = 0
             # Create IOC and category vars. We do this before processing the
             # macro(s) to avoid overwriting data when there are multiple
             # macros in a single file.
-            results["Macro"]["Analysis"] = dict()
-            results["Macro"]["Analysis"]["AutoExec"] = list()
-            results["Macro"]["Analysis"]["Suspicious"] = list()
-            results["Macro"]["Analysis"]["IOCs"] = list()
-            results["Macro"]["Analysis"]["HexStrings"] = list()
+            macrores["Analysis"] = dict()
+            macrores["Analysis"]["AutoExec"] = list()
+            macrores["Analysis"]["Suspicious"] = list()
+            macrores["Analysis"]["IOCs"] = list()
+            macrores["Analysis"]["HexStrings"] = list()
             for (subfilename, stream_path, vba_filename, vba_code) in vba.extract_macros():
                 vba_code = filter_vba(vba_code)
                 if vba_code.strip() != '':
                     # Handle all macros
                     ctr += 1
                     outputname = "Macro" + str(ctr)
-                    results["Macro"]["Code"][outputname] = list()
-                    results["Macro"]["Code"][outputname].append((convert_to_printable(vba_filename),convert_to_printable(vba_code)))
+                    macrores["Code"][outputname] = list()
+                    macrores["Code"][outputname].append((convert_to_printable(vba_filename),convert_to_printable(vba_code)))
                     autoexec = detect_autoexec(vba_code)
                     suspicious = detect_suspicious(vba_code)
                     iocs = vbadeobf.parse_macro(vba_code)
                     hex_strs = detect_hex_strings(vba_code)
                     if autoexec:
                         for keyword, description in autoexec:
-                            results["Macro"]["Analysis"]["AutoExec"].append((keyword, description))
+                            macrores["Analysis"]["AutoExec"].append((keyword, description))
                     if suspicious:
                         for keyword, description in suspicious:
-                            results["Macro"]["Analysis"]["Suspicious"].append((keyword, description))
+                            macrores["Analysis"]["Suspicious"].append((keyword, description))
                     if iocs:
                         for pattern, match in iocs:
-                            results["Macro"]["Analysis"]["IOCs"].append((pattern, match))
+                            macrores["Analysis"]["IOCs"].append((pattern, match))
                     if hex_strs:
                         for encoded, decoded in hex_strs:
-                            results["Macro"]["Analysis"]["HexStrings"].append((encoded, decoded))
+                            macrores["Analysis"]["HexStrings"].append((encoded, decoded))
             # Delete and keys which had no results. Otherwise we pollute the
             # Django interface with null data.
-            if results["Macro"]["Analysis"]["AutoExec"] == []:
-                del results["Macro"]["Analysis"]["AutoExec"]
-            if results["Macro"]["Analysis"]["Suspicious"] == []:
-                del results["Macro"]["Analysis"]["Suspicious"]
-            if results["Macro"]["Analysis"]["IOCs"] == []:
-                del results["Macro"]["Analysis"]["IOCs"]
-            if results["Macro"]["Analysis"]["HexStrings"] == []:
-                del results["Macro"]["Analysis"]["HexStrings"]
+            if macrores["Analysis"]["AutoExec"] == []:
+                del macrores["Analysis"]["AutoExec"]
+            if macrores["Analysis"]["Suspicious"] == []:
+                del macrores["Analysis"]["Suspicious"]
+            if macrores["Analysis"]["IOCs"] == []:
+                del macrores["Analysis"]["IOCs"]
+            if macrores["Analysis"]["HexStrings"] == []:
+                del macrores["Analysis"]["HexStrings"]
 
         else:
-            results["Metadata"]["HasMacros"] = "No"
+            metares["HasMacros"] = "No"
 
         oleid = OleID(filepath)
         indicators = oleid.check()
         for indicator in indicators:
             if indicator.name == "Word Document" and indicator.value == True:
-                results["Metadata"]["DocumentType"] = indicator.name
+                metares["DocumentType"] = indicator.name
             if indicator.name == "Excel Workbook" and indicator.value == True:
-                results["Metadata"]["DocumentType"] = indicator.name
+                metares["DocumentType"] = indicator.name
             if indicator.name == "PowerPoint Presentation" and indicator.value == True:
-                results["Metadata"]["DocumentType"] = indicator.name
+                metares["DocumentType"] = indicator.name
 
         return results
 
@@ -1073,6 +1134,127 @@ class Office(object):
         if not os.path.exists(self.file_path):
             return None
         results = self._parse(self.file_path)
+        return results
+
+class Java(object):
+    """Java Static Analysis"""
+    def __init__(self, file_path, decomp_jar):
+        self.file_path = file_path
+        self.decomp_jar = decomp_jar
+
+    def run(self):
+        """Run analysis.
+        @return: analysis results dict or None.
+        """
+        if not os.path.exists(self.file_path):
+            return None
+
+        results = {}
+
+        results["java"] = { }
+        
+        if self.decomp_jar:
+            f = open(self.file_path, "rb")
+            data = f.read()
+            f.close()
+            jar_file = store_temp_file(data, "decompile.jar")
+
+            try:
+                p = Popen(["java", "-jar", self.decomp_jar, jar_file], stdout=PIPE)
+                results["java"]["decompiled"] = convert_to_printable(p.stdout.read())
+            except:
+                pass
+
+            try:
+                os.unlink(jar_file)
+            except:
+                pass
+
+        alienspy_config = alienspy.extract_config(self.file_path)
+        if alienspy_config:
+            results["rat"] = { }
+            results["rat"]["name"] = "AlienSpy"
+            results["rat"]["config"] = alienspy_config
+
+        qrat_config = qrat.extract_config(self.file_path, self.decomp_jar)
+        if qrat_config:
+            results["rat"] = { }
+            results["rat"]["name"] = "QRat"
+            results["rat"]["config"] = qrat_config
+
+        return results
+
+class URL(object):
+    """URL 'Static' Analysis"""
+    def __init__(self, url):
+        self.url = url
+        p = r"^(?:https?:\/\/)?(?:www\.)?(?P<domain>[^:\/\n]+)"
+        dcheck = re.match(p, self.url)
+        if dcheck:
+            self.domain = dcheck.group("domain")
+            # Work around a bug where a "." can tail a url target if
+            # someone accidentally appends one during submission
+            while self.domain.endswith("."):
+                self.domain = self.domain[:-1]
+        else:
+            self.domain = ""
+
+    def run(self):
+        results = {}
+        if self.domain:
+            try:
+                w = whois(self.domain)
+                results["url"] = {}
+                # Create static fields if they don't exist, EG if the WHOIS
+                # data is stale.
+                fields = ['updated_date', 'status', 'name', 'city',
+                          'expiration_date', 'zipcode', 'domain_name',
+                          'country', 'whois_server', 'state', 'registrar',
+                          'referral_url', 'address', 'name_servers', 'org',
+                          'creation_date', 'emails']
+                for field in fields:
+                    if field not in w.keys() or not w[field]:
+                        w[field] = ["None"]
+            except:
+                # No WHOIS data returned
+                log.warning("No WHOIS data for domain: " + self.domain)
+                return results
+
+            # These can be a list or string, just make them all lists
+            for key in w.keys():
+                buf = list()
+                # Handle and format dates
+                if "_date" in key:
+                    if isinstance(w[key], list):
+                        buf = [str(dt).replace("T", " ").split(".")[0]
+                                for dt in w[key]]
+                    else:
+                        buf = [str(w[key]).replace("T", " ").split(".")[0]]
+                else:
+                    if isinstance(w[key], list):
+                        continue
+                    else:
+                        buf = [w[key]]
+                w[key] = buf
+
+            output = ("Name: {0}\nCountry: {1}\nState: {2}\nCity: {3}\n"
+                      "ZIP Code: {4}\nAddress: {5}\n\nOrginization: {6}\n"
+                      "Domain Name(s):\n    {7}\nCreation Date:\n    {8}\n"
+                      "Updated Date:\n    {9}\nExpiration Date:\n    {10}\n"
+                      "Email(s):\n    {11}\n\nRegistrar(s):\n    {12}\nName "
+                      "Server(s):\n    {13}\nReferral URL(s):\n    {14}")
+            output = output.format(w["name"][0], w["country"][0], w["state"][0],
+                         w["city"][0], w["zipcode"][0], w["address"][0],
+                         w["org"][0], "\n    ".join(w["domain_name"]),
+                         "\n    ".join(w["creation_date"]),
+                         "\n    ".join(w["updated_date"]),
+                         "\n    ".join(w["expiration_date"]),
+                         "\n    ".join(w["emails"]),
+                         "\n    ".join(w["registrar"]),
+                         "\n    ".join(w["name_servers"]),
+                         "\n    ".join(w["referral_url"]))
+            results["url"]["whois"] = output
+
         return results
 
 
@@ -1094,17 +1276,26 @@ class Static(Processing):
                     static.update(DotNETExecutable(self.file_path, self.results).run())
             elif "PDF" in thetype or self.task["target"].endswith(".pdf"):
                 static = PDF(self.file_path).run()
-            elif "Word 2007" in thetype or "Excel 2007" in thetype or "PowerPoint 2007" in thetype:
+            elif "Word 2007" in thetype or "Excel 2007" in thetype or "PowerPoint 2007" in thetype or "MIME entity" in thetype:
                 static = Office(self.file_path).run()
             elif "Composite Document File" in thetype:
                 static = Office(self.file_path).run()
-            elif self.task["target"].endswith((".doc", ".docx", ".rtf", ".xls", ".xlsx", ".ppt", ".pptx", ".pps", ".ppsx", ".pptm", ".potm", ".potx", ".ppsm")):
+            elif self.task["target"].endswith((".doc", ".docx", ".rtf", ".xls", ".mht", ".xlsx", ".ppt", ".pptx", ".pps", ".ppsx", ".pptm", ".potm", ".potx", ".ppsm")):
                 static = Office(self.file_path).run()
+            elif "Java Jar" in thetype or self.task["target"].endswith(".jar"):
+                decomp_jar = self.options.get("procyon_path", None)
+                if decomp_jar and not os.path.exists(decomp_jar):
+                    log.error("procyon_path specified in processing.conf but the file does not exist.")
+                static = Java(self.file_path, decomp_jar).run()
             # It's possible to fool libmagic into thinking our 2007+ file is a
             # zip. So until we have static analysis for zip files, we can use
             # oleid to fail us out silently, yeilding no static analysis
             # results for actual zip files.
             elif "Zip archive data, at least v2.0" in thetype:
                 static = Office(self.file_path).run()
+        elif self.task["category"] == "url":
+            enabled_whois = self.options.get("whois", True)
+            if HAVE_WHOIS and enabled_whois:
+                static = URL(self.task["target"]).run()
 
         return static

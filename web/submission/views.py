@@ -103,14 +103,20 @@ def index(request):
             task_machines.append(machine)
 
         if "sample" in request.FILES:
-            for sample in request.FILES.getlist("sample"):
-                if sample.size == 0:
+            samples = request.FILES.getlist("sample")
+            for sample in samples:
+                # Error if there was only one submitted sample and it's empty.
+                # But if there are multiple and one was empty, just ignore it.
+                if not sample.size:
+                    if len(samples) != 1:
+                        continue
+
                     return render_to_response("error.html",
                                               {"error": "You uploaded an empty file."},
                                               context_instance=RequestContext(request))
                 elif sample.size > settings.MAX_UPLOAD_SIZE:
                     return render_to_response("error.html",
-                                              {"error": "You uploaded a file that exceeds that maximum allowed upload size."},
+                                              {"error": "You uploaded a file that exceeds the maximum allowed upload size specified in web/web/local_settings.py."},
                                               context_instance=RequestContext(request))
     
                 # Moving sample from django temporary file to Cuckoo temporary storage to
@@ -137,14 +143,20 @@ def index(request):
                                                                      machine=entry, custom=custom, memory=memory, enforce_timeout=enforce_timeout, tags=tags, clock=clock)
                         task_ids.extend(task_ids_new)
         elif "quarantine" in request.FILES:
-            for sample in request.FILES.getlist("quarantine"):
-                if sample.size == 0:
+            samples = request.FILES.getlist("quarantine")
+            for sample in samples:
+                # Error if there was only one submitted sample and it's empty.
+                # But if there are multiple and one was empty, just ignore it.
+                if not sample.size:
+                    if len(samples) != 1:
+                        continue
+
                     return render_to_response("error.html",
                                               {"error": "You uploaded an empty quarantine file."},
                                               context_instance=RequestContext(request))
                 elif sample.size > settings.MAX_UPLOAD_SIZE:
                     return render_to_response("error.html",
-                                              {"error": "You uploaded a quarantine file that exceeds that maximum allowed upload size."},
+                                              {"error": "You uploaded a quarantine file that exceeds the maximum allowed upload size specified in web/web/local_settings.py."},
                                               context_instance=RequestContext(request))
     
                 # Moving sample from django temporary file to Cuckoo temporary storage to

@@ -530,6 +530,16 @@ class Summary:
 
         elif call["api"] == "CreateProcessInternalW" or call["api"] == "NtCreateUserProcess":
             cmdline = self.get_argument(call, "CommandLine", strip=True)
+            appname = self.get_argument(call, "ApplicationName", strip=True)
+            if appname and cmdline:
+                base = '.'.join(appname.split('\\')[-1].split('.')[:-1])
+                firstarg = ""
+                if cmdline[0] == "\"":
+                    firstarg = cmdline[1:].split("\"")[0]
+                else:
+                    firstarg = cmdline.split(" ")[0]
+                if base not in firstarg:
+                    cmdline = appname + " " + cmdline
             if cmdline and cmdline not in self.executed_commands:
                 self.executed_commands.append(cmdline)
 
@@ -1034,14 +1044,20 @@ class ProcessTree:
         @return: boolean with operation success status.
         """
         # Walk through the existing tree.
+        ret = False
         for process in tree:
             # If the current process has the same ID of the parent process of
             # the provided one, append it the children.
             if process["pid"] == node["parent_id"]:
                 process["children"].append(node)
+                ret = True
+                break
             # Otherwise try with the children of the current process.
             else:
-                self.add_node(node, process["children"])
+                if self.add_node(node, process["children"]):
+                    ret = True
+                    break
+        return ret
 
     def event_apicall(self, call, process):
         for entry in self.processes:
@@ -1065,10 +1081,13 @@ class ProcessTree:
             has_parent = False
             # Walk through the list again.
             for process_again in self.processes:
+                if process_again == process:
+                    continue
                 # If we find a parent for the first process, we mark it as
                 # as a child.
                 if process_again["pid"] == process["parent_id"]:
                     has_parent = True
+                    break
 
             # If the process has a parent, add it to the children list.
             if has_parent:
@@ -1079,7 +1098,8 @@ class ProcessTree:
 
         # Now we loop over the remaining child processes.
         for process in children:
-            self.add_node(process, self.tree)
+            if not self.add_node(process, self.tree):
+                self.tree.append(process)
 
         return self.tree
 

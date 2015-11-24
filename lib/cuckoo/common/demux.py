@@ -55,7 +55,7 @@ def demux_zip(filename, options):
                     continue
                 extensions = [
                     "", ".exe", ".dll", ".jar", ".pdf", ".msi", ".bin", ".scr", ".zip", ".htm", ".html", 
-                    ".doc", ".dot", ".docx", ".dotx", ".docm", ".dotm", ".docb", 
+                    ".doc", ".dot", ".docx", ".dotx", ".docm", ".dotm", ".docb", ".mht", 
                     ".xls", ".xlt", ".xlm", ".xlsx", ".xltx", ".xlsm", ".xltm", ".xlsb", ".xla", ".xlam", ".xll", ".xlw",
                     ".ppt", ".pot", ".pps", ".pptx", ".pptm", ".potx", ".potm", ".ppam", ".ppsx", ".ppsm", ".sldx", ".sldm"
                 ]
@@ -124,7 +124,7 @@ def demux_rar(filename, options):
                     continue
                 extensions = [
                     "", ".exe", ".dll", ".jar", ".pdf", ".msi", ".bin", ".scr", ".zip", ".htm", ".html", 
-                    ".doc", ".dot", ".docx", ".dotx", ".docm", ".dotm", ".docb", 
+                    ".doc", ".dot", ".docx", ".dotx", ".docm", ".dotm", ".docb", ".mht", 
                     ".xls", ".xlt", ".xlm", ".xlsx", ".xltx", ".xlsm", ".xltm", ".xlsb", ".xla", ".xlam", ".xll", ".xlw",
                     ".ppt", ".pot", ".pps", ".pptx", ".pptm", ".potx", ".potm", ".ppam", ".ppsx", ".ppsm", ".sldx", ".sldm"
                 ]
@@ -187,7 +187,8 @@ def demux_sample(filename, package, options):
 
     # if a package was specified, then don't do anything special
     # this will allow for the ZIP package to be used to analyze binaries with included DLL dependencies
-    if package:
+    # do the same if file= is specified in the options
+    if package or "file=" in options:
         return [ filename ]
 
     retlist = demux_zip(filename, options)

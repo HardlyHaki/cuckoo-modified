@@ -326,7 +326,7 @@ def filtered_chunk(request, task_id, pid, category, apilist):
                 {"behavior.processes.process_id": 1, "behavior.processes.calls": 1}
             )
         if enabledconf["elasticsearchdb"]:
-            print "info.id: \"%s\" and behavior.processes.process_id: \"%s\"" % (task_id, pid)
+            #print "info.id: \"%s\" and behavior.processes.process_id: \"%s\"" % (task_id, pid)
             record = es.search(
                          index=fullidx,
                          doc_type="analysis",
@@ -731,6 +731,10 @@ def report(request, task_id):
                     siminfo = get_analysis_info(db, id=int(sim["id"]))
                     if siminfo:
                         similarinfo.append(siminfo)
+                if similarinfo:
+                    buf = sorted(similarinfo, key=lambda z: z["id"], reverse=True)
+                    similarinfo = buf
+
         except:
             pass
 
@@ -790,7 +794,7 @@ def elastic_file(request, category, task_id, dlfile):
         cd = "application/vnd.tcpdump.pcap"
     elif category == "screenshot":
         file_name += ".jpg"
-        print file_name
+        #print file_name
         path = os.path.join(CUCKOO_ROOT, "storage", "analyses",
                             task_id, "shots", file_name)
         cd = "image/jpeg"
@@ -887,7 +891,7 @@ def filereport(request, task_id, category):
         "html": "report.html",
         "htmlsummary": "summary-report.html",
         "pdf": "report.pdf",
-        "maec": "report.maec-1.1.xml",
+        "maec": "report.maec-4.1.xml",
         "metadata": "report.metadata.xml",
     }
 
@@ -1005,6 +1009,10 @@ def search(request):
                     records = results_db.analysis.find({"malfamily": {"$regex": value, "$options": "-i"}}).sort([["_id", -1]])
                 elif term == "url":
                     records = results_db.analysis.find({"target.url": value}).sort([["_id", -1]])
+                elif term == "iconhash":
+                    records = results_db.analysis.find({"static.pe.icon_hash": value}).sort([["_id", -1]])
+                elif term == "iconfuzzy":
+                    records = results_db.analysis.find({"static.pe.icon_fuzzy": value}).sort([["_id", -1]])
                 elif term == "imphash":
                     records = results_db.analysis.find({"static.pe_imphash": value}).sort([["_id", -1]])
                 elif term == "surisid":
@@ -1084,8 +1092,12 @@ def search(request):
                     records = es.search(index=fullidx, doc_type="analysis", q="malfamily: %s" % value)["hits"]["hits"]
                 elif term == "url":
                     records = es.search(index=fullidx, doc_type="analysis", q="target.url: %s" % value)["hits"]["hits"]
+                elif term == "iconhash":
+                    records = es.search(index=fullidx, doc_type="analysis", q="static.pe.icon_hash: %s" % value)["hits"]["hits"]
+                elif term == "iconfuzzy":
+                    records = es.search(index=fullidx, doc_type="analysis", q="static.pe.icon_fuzzy: %s" % value)["hits"]["hits"]
                 elif term == "imphash":
-                    records = es.search(index=fullidx, doc_type="analysis", q="static.pe_imphash: %s" % value)["hits"]["hits"]
+                    records = es.search(index=fullidx, doc_type="analysis", q="static.pe.imphash: %s" % value)["hits"]["hits"]
                 elif term == "surialert":
                     records = es.search(index=fullidx, doc_type="analysis", q="suricata.alerts.signature: %s" % value)["hits"]["hits"]
                 elif term == "surihttp":
@@ -1308,7 +1320,7 @@ def pcapstream(request, task_id, conntuple):
                                      task_id, "dump_sorted.pcap")
             fobj = open(pcap_path, "r")
     except Exception as e:
-        print str(e)
+        #print str(e)
         return render_to_response("standalone_error.html",
             {"error": "The required sorted PCAP does not exist"},
             context_instance=RequestContext(request))

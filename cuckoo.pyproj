@@ -117,7 +117,9 @@
       <SubType>Code</SubType>
     </Compile>
     <Compile Include="analyzer\windows\modules\auxiliary\browser.py" />
+    <Compile Include="analyzer\windows\modules\auxiliary\digisig.py" />
     <Compile Include="analyzer\windows\modules\packages\chrome.py" />
+    <Compile Include="analyzer\windows\modules\packages\js.py" />
     <Compile Include="analyzer\windows\modules\packages\msg.py" />
     <Compile Include="analyzer\windows\modules\packages\eml.py" />
     <Compile Include="analyzer\windows\modules\packages\rar.py" />
@@ -128,10 +130,19 @@
     <Compile Include="analyzer\windows\modules\packages\swf.py" />
     <Compile Include="cuckoo.py" />
     <Compile Include="agent\agent.py" />
+    <Compile Include="lib\cuckoo\common\decoders\alienspy.py">
+      <SubType>Code</SubType>
+    </Compile>
     <Compile Include="lib\cuckoo\common\decoders\darkcomet.py">
       <SubType>Code</SubType>
     </Compile>
+    <Compile Include="lib\cuckoo\common\decoders\nanocore.py">
+      <SubType>Code</SubType>
+    </Compile>
     <Compile Include="lib\cuckoo\common\decoders\njrat.py">
+      <SubType>Code</SubType>
+    </Compile>
+    <Compile Include="lib\cuckoo\common\decoders\qrat.py">
       <SubType>Code</SubType>
     </Compile>
     <Compile Include="lib\cuckoo\common\decoders\__init__.py">
@@ -151,6 +162,7 @@
     <Compile Include="lib\cuckoo\common\office\olefile.py" />
     <Compile Include="lib\cuckoo\common\office\oleid.py" />
     <Compile Include="lib\cuckoo\common\office\olevba.py" />
+    <Compile Include="lib\cuckoo\common\office\pyparsing.py" />
     <Compile Include="lib\cuckoo\common\office\vbadeobf.py" />
     <Compile Include="lib\cuckoo\common\office\__init__.py" />
     <Compile Include="lib\cuckoo\common\pdftools\pdf-parser.py" />
@@ -390,8 +402,12 @@
     <Content Include="web\templates\analysis\behavior\_search.html" />
     <Content Include="web\templates\analysis\behavior\_search_results.html" />
     <Content Include="web\templates\analysis\comments\index.html" />
+    <Content Include="web\templates\analysis\memory\_netscan.html" />
+    <Content Include="web\templates\analysis\memory\_sockscan.html" />
     <Content Include="web\templates\analysis\network\_smtp.html" />
     <Content Include="web\templates\analysis\static\_dotnet.html" />
+    <Content Include="web\templates\analysis\static\_java.html" />
+    <Content Include="web\templates\analysis\static\_office.html" />
     <Content Include="web\templates\analysis\statistics\index.html" />
     <Content Include="web\templates\analysis\similar\index.html" />
     <Content Include="web\templates\analysis\network\_cif.html" />
@@ -414,10 +430,6 @@
     <Content Include="web\templates\submission\status.html" />
     <Content Include="web\templates\success_simple.html" />
     <Content Include="web\templates\success.html" />
-    <Compile Include="web\templates\analysis\templatetags\analysis_tags.py" />
-    <Compile Include="web\templates\analysis\templatetags\key_tags.py" />
-    <Compile Include="web\templates\analysis\templatetags\pdf_tags.py" />
-    <Compile Include="web\templates\analysis\templatetags\__init__.py" />
     <Compile Include="web\web\headers.py" />
     <Compile Include="web\web\local_settings.py" />
     <Compile Include="web\web\settings.py" />
@@ -579,7 +591,6 @@
     <Folder Include="web\templates\analysis\overview" />
     <Folder Include="web\templates\analysis\procmemory\" />
     <Folder Include="web\templates\analysis\static" />
-    <Folder Include="web\templates\analysis\templatetags\" />
     <Folder Include="web\templates\api\" />
     <Folder Include="web\templates\dashboard" />
     <Folder Include="web\templates\submission" />

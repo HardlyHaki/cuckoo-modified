@@ -384,7 +384,18 @@ def pretty_print_arg(category, api_name, arg_name, arg_val):
                 12 : "WH_CALLWNDPROCRET",
                 13 : "WH_KEYBOARD_LL",
                 14 : "WH_MOUSE_LL"
-        }.get(val, None)                
+        }.get(val, None)
+    elif arg_name == "InfoLevel":
+        val = int(arg_val, 10)
+        return {
+                1 : "HTTP_QUERY_CONTENT_TYPE",
+                5 : "HTTP_QUERY_CONTENT_LENGTH",
+                6 : "HTTP_QUERY_CONTENT_LANGUAGE",
+                9 : "HTTP_QUERY_DATE",
+                10 : "HTTP_QUERY_EXPIRES",
+                18 : "HTTP_QUERY_VERSION",
+                21 : "HTTP_QUERY_RAW_HEADERS"
+        }.get(val, None)
     elif arg_name == "Disposition":
         val = int(arg_val, 10)
         return {
@@ -426,7 +437,12 @@ def pretty_print_arg(category, api_name, arg_name, arg_val):
                 4 : "SystemPerformanceInformation",
                 5 : "SystemProcessInformation",
                 8 : "SystemProcessorPerformanceInformation",
-                21 : "SystemFileCacheInformation"
+                21 : "SystemFileCacheInformation",
+                35 : "SystemKernelDebuggerInformation",
+                44 : "SystemCurrentTimeZoneInformation",
+                66 : "SystemDynamicTimeZoneInformation",
+                90 : "SystemBootEnvironmentInformation",
+                123 : "SystemBasicPerformanceInformation",
         }.get(val, None)
     elif category == "registry" and arg_name == "Type":
         val = int(arg_val, 16)
@@ -640,7 +656,7 @@ def pretty_print_arg(category, api_name, arg_name, arg_val):
                 0x6d0030 : "IOCTL_MOUNTMGR_QUERY_DOS_VOLUME_PATH",
                 0x6d0034 : "IOCTL_MOUNTMGR_QUERY_DOS_VOLUME_PATHS"
         }.get(val, None)
-    elif arg_name == "Protection" or arg_name == "Win32Protect" or arg_name == "NewAccessProtection" or arg_name == "OldAccessProtection":
+    elif arg_name == "Protection" or arg_name == "Win32Protect" or arg_name == "NewAccessProtection" or arg_name == "OldAccessProtection" or arg_name == "OldProtection":
         val = int(arg_val, 16)
         res = []
         if val & 0x00000001:
@@ -1236,6 +1252,19 @@ def pretty_print_arg(category, api_name, arg_name, arg_val):
                 55 : "FileReplaceCompletionInformation",
                 56 : "FileMaximumInformation"
          }.get(val, None)
+    elif arg_name == "ProcessInformationClass":
+        val = int(arg_val, 10)
+        return {
+                29 : "ProcessBreakOnTermination",
+                34 : "ProcessDEPPolicy",
+         }.get(val, None)
+    elif arg_name == "MemType":
+        val = int(arg_val, 16)
+        return {
+                0x20000 : "MEM_PRIVATE",
+                0x40000 : "MEM_MAPPED",
+                0x1000000 : "MEM_IMAGE",
+         }.get(val, None)
     elif arg_name == "Show":
         val = int(arg_val, 10)
         return {
@@ -1394,7 +1423,19 @@ def get_vt_consensus(namelist):
         "multi",
         "ransom",
         "autoit",
+        "yakes",
         "java",
+        "ckrf",
+        "html",
+        "bngv",
+        "bnaq",
+        "o97m",
+        "blqi",
+        "bmbg",
+        "mikey",
+        "kazy",
+        "x97m",
+        "msword",
     ]
 
     finaltoks = defaultdict(int)
