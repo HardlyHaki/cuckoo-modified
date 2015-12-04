@@ -114,8 +114,8 @@ class Moloch(Report):
 
             if results["target"]["file"].has_key("md5") and results["target"]["file"]["md5"]:
                 cmd = cmd + " -t \"md5:%s\"" % (results["target"]["file"]["md5"])
-            if results["target"]["file"].has_key("sha1") and results["target"]["file"]["sha1"]:
-                cmd = cmd + " -t \"sha1:%s\"" % (results["target"]["file"]["sha1"])
+            #if results["target"]["file"].has_key("sha1") and results["target"]["file"]["sha1"]:
+            #    cmd = cmd + " -t \"sha1:%s\"" % (results["target"]["file"]["sha1"])
             if results["target"]["file"].has_key("sha256") and results["target"]["file"]["sha256"]:
                 cmd = cmd + " -t \"sha256:%s\"" % (results["target"]["file"]["sha256"])
             if results["target"]["file"].has_key("sha512") and results["target"]["file"]["sha512"]:
@@ -199,14 +199,14 @@ class Moloch(Report):
                            tmpdict['src_port'] = entry['sp']
                            tmpdict['dest_ip'] = entry['dstip']
                            tmpdict['dest_port'] = entry['dp']
-                           tmpdict['expression'] = "ip==%s && ip==%s && port==%s && port==%s && tags==\"%s:%s\" && tags=\"%s\"" % (tmpdict['src_ip'],tmpdict['dest_ip'],tmpdict['src_port'],tmpdict['dest_port'],self.CUCKOO_INSTANCE_TAG,self.task_id,tmpdict['cproto'])
+                           tmpdict['expression'] = "ip==%s && ip==%s && port==%s && port==%s && tags==\"%s:%s\" && ip.protocol==%s" % (tmpdict['src_ip'],tmpdict['dest_ip'],tmpdict['src_port'],tmpdict['dest_port'],self.CUCKOO_INSTANCE_TAG,self.task_id,tmpdict['cproto'])
                            tmpdict['hash'] = tmpdict['nproto'] + struct.unpack('!L',socket.inet_aton(tmpdict['src_ip']))[0] + tmpdict['src_port'] + struct.unpack('!L',socket.inet_aton(tmpdict['dest_ip']))[0] + tmpdict['dest_port']
 
                            if not self.fileshash.has_key(tmpdict['hash']):
                                self.fileshash[tmpdict['hash']] = copy.deepcopy(tmpdict)
                                self.fileshash[tmpdict['hash']]['clamav']=[]
                                self.fileshash[tmpdict['hash']]['md5']=[]
-                               self.fileshash[tmpdict['hash']]['sha1']=[]
+                               #self.fileshash[tmpdict['hash']]['sha1']=[]
                                self.fileshash[tmpdict['hash']]['sha256']=[]
                                #self.fileshash[tmpdict['hash']]['crc32']=[]
                                #self.fileshash[tmpdict['hash']]['ssdeep']=[]
@@ -215,8 +215,8 @@ class Moloch(Report):
                                self.fileshash[tmpdict['hash']]['clamav'].append("clamav:%s" % (re.sub(r"[\W]","_",entry["file_info"]["clamav"])))
                            if entry["file_info"]["md5"] and entry["file_info"]["md5"] not in self.fileshash[tmpdict['hash']]['md5']:
                                self.fileshash[tmpdict['hash']]['md5'].append("md5:%s" % (entry["file_info"]["md5"]))
-                           if entry["file_info"]["sha1"] and entry["file_info"]["sha1"] not in self.fileshash[tmpdict['hash']]['sha1']:
-                               self.fileshash[tmpdict['hash']]['sha1'].append("sha1:%s" % (entry["file_info"]["sha1"]))
+                           #if entry["file_info"]["sha1"] and entry["file_info"]["sha1"] not in self.fileshash[tmpdict['hash']]['sha1']:
+                           #    self.fileshash[tmpdict['hash']]['sha1'].append("sha1:%s" % (entry["file_info"]["sha1"]))
                            if entry["file_info"]["sha256"] and entry["file_info"]["sha256"] not in self.fileshash[tmpdict['hash']]['sha256']:
                                self.fileshash[tmpdict['hash']]['sha256'].append("sha256:%s" % (entry["file_info"]["sha256"]))
                            #these actually seem to be a bit worthless inside of moloch
@@ -231,7 +231,7 @@ class Moloch(Report):
 
                for entry in self.fileshash:
                    #tags = ','.join(map(str,self.fileshash[entry]['clamav']) + map(str,self.fileshash[entry]['md5']) + map(str,self.fileshash[entry]['sha1']) + map(str,self.fileshash[entry]['sha256']) + map(str,self.fileshash[entry]['crc32']) + map(str,self.fileshash[entry]['ssdeep']) + map(str,self.fileshash[entry]['yara']))
-                   tags = ','.join(map(str,self.fileshash[entry]['clamav']) + map(str,self.fileshash[entry]['md5']) + map(str,self.fileshash[entry]['sha1']) + map(str,self.fileshash[entry]['sha256']) + map(str,self.fileshash[entry]['yara']))
++                  tags = ','.join(map(str,self.fileshash[entry]['clamav']) + map(str,self.fileshash[entry]['md5']) + map(str,self.fileshash[entry]['sha256']) + map(str,self.fileshash[entry]['yara']))
                    if tags:
                        log.debug("moloch: updating file tags %s" % (self.fileshash[entry]['expression'])) 
                        self.update_tags(tags,self.fileshash[entry]['expression'])                
