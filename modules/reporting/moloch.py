@@ -231,7 +231,7 @@ class Moloch(Report):
 
                for entry in self.fileshash:
                    #tags = ','.join(map(str,self.fileshash[entry]['clamav']) + map(str,self.fileshash[entry]['md5']) + map(str,self.fileshash[entry]['sha1']) + map(str,self.fileshash[entry]['sha256']) + map(str,self.fileshash[entry]['crc32']) + map(str,self.fileshash[entry]['ssdeep']) + map(str,self.fileshash[entry]['yara']))
-+                  tags = ','.join(map(str,self.fileshash[entry]['clamav']) + map(str,self.fileshash[entry]['md5']) + map(str,self.fileshash[entry]['sha256']) + map(str,self.fileshash[entry]['yara']))
+                   tags = ','.join(map(str,self.fileshash[entry]['clamav']) + map(str,self.fileshash[entry]['md5']) + map(str,self.fileshash[entry]['sha256']) + map(str,self.fileshash[entry]['yara']))
                    if tags:
                        log.debug("moloch: updating file tags %s" % (self.fileshash[entry]['expression'])) 
                        self.update_tags(tags,self.fileshash[entry]['expression'])                
