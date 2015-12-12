@@ -30,31 +30,34 @@
                 <thead>
                 <tr>
                     <th width="3%">ID</th>
-                    <th width="10%">Timestamp</th>
+                    <th width="4%">Timestamp</th>
                     <th width="10%">Filename</th>
-                    <th width="15%">MD5</th>
+                    <th width="10%">MD5</th>
+                    <th width="2.5%">PKG</th>
                     {% if config.virustotal %}
-                        <th width="5%">VT</th>
+                        <th width="4%">VT</th>
                     {% endif %}
                     {% if config.suricata %}
-                        <th width="5%">SuriAlert</th>
-                        <th width="5%">SuriHTTP</th>
-                        <th width="5%">SuriTLS</th>
-                        <th width="5%">SuriFiles</th>
+                        <th width="4%">SuriAlert</th>
+                        <th width="4%">SuriHTTP</th>
+                        <th width="4%">SuriTLS</th>
+                        <th width="4%">SuriFiles</th>
                     {% endif %}
                     {% if config.moloch %}
                         <th width="5%">Moloch</th>
                     {% endif %}
                     {% if config.display_f_martians %}
-                        <th width="5%">Martians</th>
+                        <th width="4%">Martians</th>
                     {% endif %}
                     <th width="3%">PCAP</th>
-                    <th width="5%">MalScore</th>
-                    <th width="5%">Custom</th>
+                    <th width="4%">MalScore</th>
+                    <th width="4%">MalFamily</th>
+                    <th width="5%">ClamAV</th>
+                    <th width="10%">Custom</th>
                     {% if config.display_shrike %}
                         <th width="5%">Shrike</th>
                     {% endif %}
-                    <th width="3%" style="text-align: right;">Status</th>
+                    <th width="4%" style="text-align: right;">Status</th>
                 </tr>
                 </thead>
                 <tbody>
@@ -80,6 +83,13 @@
                                 <a href="{% url "submission.views.status" analysis.id %}"><span class="mono">{{analysis.sample.md5}}</span></a>
                             {% else %}
                                 <span class="mono">{{analysis.sample.md5}}</span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            {% if analysis.package %}
+                                  <span class="mono">{{analysis.package}}</span>
+                            {% else %}
+                                  <span class="mono">None</span>
                             {% endif %}
                         </td>
                         {% if config.virustotal %}
@@ -162,6 +172,20 @@
                                 title="{{analysis.malfamily}}"
                                 {% endif %}
                                 >{{analysis.malscore|floatformat:1}}</span>
+                            {% else %}
+                                <span class="mono">None</span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            {% if analysis.malscore != None and analysis.malfamily != None %}
+                                <span class="mono">{{analysis.malfamily}}</span>
+                            {% else %}
+                                <span class="mono">None</span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            {% if analysis.clamav != None %}
+                                <span class="mono">{{analysis.clamav}}</span>
                             {% else %}
                                 <span class="mono">None</span>
                             {% endif %}
@@ -268,10 +292,10 @@
                     <th width="3%">PCAP</th>
                     <th width="5%">MalScore</th>
                     {% if config.display_shrike %}
-                        <th width="5%">Custom</th>
+                        <th width="10%">Custom</th>
                         <th width="5%">Shrike</th>
                     {% else %}
-                        <th width="10%">Custom</th>
+                        <th width="20%">Custom</th>
                     {% endif %}
                     <th width="3%" style="text-align: right;">Status</th>
                 </tr>

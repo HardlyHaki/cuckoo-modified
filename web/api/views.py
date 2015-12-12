@@ -35,6 +35,7 @@ from lib.cuckoo.core.database import TASK_RUNNING, TASK_REPORTED
 apiconf = Config("api")
 limiter = apiconf.api.get("ratelimit")
 repconf = Config("reporting")
+ipaddy_re = re.compile(r"^(?:(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.){3}(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)$");
 
 if repconf.mongodb.enabled:
     import pymongo
@@ -361,57 +362,126 @@ def tasks_create_url(request):
         shrike_refer = request.POST.get("shrike_refer", None)
         gateway = request.POST.get("gateway",None)
         referer = request.POST.get("referer",None)
+
+        task_ids = []
+        task_machines = []
+        vm_list = []
+        task_gateways = []
+        for vm in db.list_machines():
+            vm_list.append(vm.label)
+
         if not url:
             resp = {"error": True, "error_value": "URL value is empty"}
             return jsonize(resp, response=True)
 
         if machine.lower() == "all":
-            resp = {"error": True,
-                    "error_value": "machine=all not supported for URL analysis API"}
-            return jsonize(resp, response=True)
-
-        if gateway and gateway in settings.GATEWAYS:
-            if "," in settings.GATEWAYS[gateway]:
-                tgateway = random.choice(settings.GATEWAYS[gateway].split(","))
-                ngateway = settings.GATEWAYS[tgateway]
+            if not apiconf.filecreate.get("allmachines"):
+                resp = {"error": True,
+                        "error_value": "Machine=all is disabled using the API"}
+                return jsonize(resp, response=True)
+            for entry in vm_list:
+                task_machines.append(entry)
+        else:
+            # Check if VM is in our machines table
+            if machine == "" or machine in vm_list:
+                task_machines.append(machine)
+            # Error if its not
             else:
-                ngateway = settings.GATEWAYS[gateway]
-            if options:
-                options += ","
-            options += "setgw=%s" % (ngateway)
+                resp = {"error": True,
+                        "error_value": ("Machine '{0}' does not exist. "
+                                        "Available: {1}".format(machine,
+                                        ", ".join(vm_list)))}
+                return jsonize(resp, response=True)
+        if gateway.lower() == "all":
+            for e in settings.GATEWAYS:
+                if ipaddy_re.match(settings.GATEWAYS[e]):
+                    task_gateways.append(settings.GATEWAYS[e])
+
+        elif gateway and gateway in settings.GATEWAYS:
+             if "," in settings.GATEWAYS[gateway]:
+                if request.POST.get("all_gw_in_group"):
+                    tgateway = settings.GATEWAYS[gateway].split(",")
+                    for e in tgateway:
+                         task_gateways.append(settings.GATEWAYS[e])
+                else:
+                    tgateway = random.choice(settings.GATEWAYS[gateway].split(","))
+                    task_gateways.append(settings.GATEWAYS[tgateway])
+             else:
+                 task_gateways.append(settings.GATEWAYS[gateway])
 
         if referer:
-            if options:
-                options += ","
-            options += "referer=%s" % (referer)
-            
-        task_id = db.add_url(url=url,
-                             package=package,
-                             timeout=timeout,
-                             priority=priority,
-                             options=options,
-                             machine=machine,
-                             platform=platform,
-                             tags=tags,
-                             custom=custom,
-                             memory=memory,
-                             enforce_timeout=enforce_timeout,
-                             clock=clock,
-                             shrike_url=shrike_url,
-                             shrike_msg=shrike_msg,
-                             shrike_sid=shrike_sid,
-                             shrike_refer=shrike_refer
-                             )
-        if task_id:
-            resp["task_ids"] = [task_id,]
-            resp["data"] = "Task ID {0} has been submitted".format(
-                           str(task_id))
-            if apiconf.urlcreate.get("status"):
-                resp["url"] = ["{0}/submit/status/{1}".format(
-                              apiconf.api.get("url"), task_id)]
+             if options:
+                 options += ","
+             options += "referer=%s" % (referer)
+
+        if task_gateways:
+            for gw in task_gateways:
+                if options:
+                    options += ","
+                options += "setgw=%s" % (gw)
+
+                for machine in task_machines:
+                     task_ids_new = db.add_url(url=url,
+                                     package=package,
+                                     timeout=timeout,
+                                     priority=priority,
+                                     options=options,
+                                     machine=machine,
+                                     platform=platform,
+                                     tags=tags,
+                                     custom=custom,
+                                     memory=memory,
+                                     enforce_timeout=enforce_timeout,
+                                     clock=clock,
+                                     shrike_url=shrike_url,
+                                     shrike_msg=shrike_msg,
+                                     shrike_sid=shrike_sid,
+                                     shrike_refer=shrike_refer
+                                     )
+                     if task_ids_new:
+                        task_ids.append(task_ids_new)
         else:
-            resp = {"error": True,
-                    "error_value": "Error adding task to database"}
+            for machine in task_machines:
+                 task_ids_new = db.add_url(url=url,
+                                 package=package,
+                                 timeout=timeout,
+                                 priority=priority,
+                                 options=options,
+                                 machine=machine,
+                                 platform=platform,
+                                 tags=tags,
+                                 custom=custom,
+                                 memory=memory,
+                                 enforce_timeout=enforce_timeout,
+                                 clock=clock,
+                                 shrike_url=shrike_url,
+                                 shrike_msg=shrike_msg,
+                                 shrike_sid=shrike_sid,
+                                 shrike_refer=shrike_refer
+                                 )
+                 if task_ids_new:
+                    task_ids.append(task_ids_new)
+
+        if len(task_ids) > 0:
+            resp["task_ids"] = task_ids
+            callback = apiconf.filecreate.get("status")
+            if len(task_ids) == 1:
+                resp["data"] = "Task ID {0} has been submitted".format(
+                               str(task_ids[0]))
+                if callback:
+                    resp["url"] = ["{0}/submit/status/{1}/".format(
+                                  apiconf.api.get("url"), task_ids[0])]
+            else:
+                resp["task_ids"] = task_ids
+                resp["data"] = "Task IDs {0} have been submitted".format(
+                               ", ".join(str(x) for x in task_ids))
+                if callback:
+                    resp["url"] = list()
+                    for tid in task_ids:
+                        resp["url"].append("{0}/submit/status/{1}".format(
+                                           apiconf.api.get("url"), tid))
+            return jsonize(resp, response=True)
+
     else:
         resp = {"error": True, "error_value": "Method not allowed"}
 
