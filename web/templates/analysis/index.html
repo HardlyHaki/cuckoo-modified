@@ -177,7 +177,7 @@
                             {% endif %}
                         </td>
                         <td>
-                            {% if analysis.malscore != None and analysis.malfamily != None %}
+                            {% if analysis.malfamily != None and analysis.malfamily != "" %}
                                 <span class="mono">{{analysis.malfamily}}</span>
                             {% else %}
                                 <span class="mono">None</span>
