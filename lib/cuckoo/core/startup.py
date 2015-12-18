@@ -506,22 +506,26 @@ def cuckoo_clean_before_day(args):
             new = e.to_dict()
             print int(new["id"])
             id_arr.append({"info.id":(int(new["id"]))})
-
         print "number of matching records %s before suri/custom filter " % len(id_arr)
         if id_arr and args.suricata_zero_alert_filter:
+            print "pruning results that have suri suri hits"
             result = list(results_db.suricata.find({"alerts.alert": {"$exists": False}, "$or": id_arr},{"info.id":1}))
+            print result
             tmp_arr =[]
             for entry in result:
-                tmp_arr.append(entry["info"]["id"])
+                tmp_arr.append({"info.id":int(entry["info"]["id"])})
             id_arr = tmp_arr
+            print "number of matching records %s after suri zero filter " % len(id_arr)
         if id_arr and args.custom_include_filter:
-            result = list(results_db.analysis.find({"info.custom": {"$regex": args.custom_include_filter},"$or": id_arr},{"info.id":1}))
+            print "applying custom filter"
+            result = list(results_db.analysis.find({"info.custom": {"$regex": args.custom_include_filter}, "$or": id_arr},{"info.id":1}))
             tmp_arr = []
             for entry in result:
-                tmp_arr.append(entry["info"]["id"])
+                tmp_arr.append({"info.id":int(entry["info"]["id"])})
             id_arr = tmp_arr
         print "number of matching records %s" % len(id_arr)
-        for e in id_arr:
+        for entry in id_arr:
+            e = int(entry["info.id"]) 
             try:
                 print "removing %s from suridb" % (e)
                 results_db.suricata.remove({"info.id": e})
