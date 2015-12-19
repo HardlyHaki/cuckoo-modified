@@ -27,6 +27,7 @@ from lib.cuckoo.common.exceptions import CuckooOperationalError
 from lib.cuckoo.common.utils import create_folders, store_temp_file, delete_folder
 from lib.cuckoo.core.database import Database, Task, TASK_RUNNING, TASK_FAILED_ANALYSIS, TASK_FAILED_PROCESSING, TASK_FAILED_REPORTING, TASK_RECOVERED
 from lib.cuckoo.core.plugins import import_plugin, import_package, list_plugins
+from bson.objectid import ObjectId
 
 log = logging.getLogger()
 
@@ -357,6 +358,97 @@ def cuckoo_clean():
                 log.warning("Error removing file %s: %s", path, e)
 
 
+def remove_task(task_id):
+    #for this not to take eternity you need to create the following indexes
+    #mongo
+    #use cuckoo
+    #db.analysis.createIndex({"shots":1},{"background":1})
+    #db.analysis.createIndex({"network.pcap_id":1},{"background":1})
+    #db.analysis.createIndex({"network.sorted_pcap_id":1},{"background":1})
+    #db.analysis.createIndex({"dropped.object_id":1},{"background":1})
+    #db.suricata.createIndex({"files.object_id":1},{"background":1})
+    #db.analysis.createIndex({"info.custom":1},{"background":1})
+
+    # Initialize the database connection.
+    db = Database()
+    
+    # Check if MongoDB reporting is enabled and drop that if it is.
+    cfg = Config("reporting")
+    if cfg.mongodb and cfg.mongodb.enabled:
+        from pymongo import MongoClient
+        host = cfg.mongodb.get("host", "127.0.0.1")
+        port = cfg.mongodb.get("port", 27017)
+        mdb = cfg.mongodb.get("db", "cuckoo")
+        from gridfs import GridFS
+        try:
+            results_db = MongoClient(host, port)[mdb]
+        except:
+            log.warning("Unable to connect to MongoDB database: %s", mdb)
+            return
+        
+        analyses = results_db.analysis.find({"info.id": int(task_id)})
+        suri = results_db.suricata.find({"info.id": int(task_id)})
+        fs = GridFS(results_db)
+
+        print "going to delete task id %s" % (task_id)
+        # Checks if more analysis found with the same ID, like if process.py was run manually.
+        if analyses.count() > 1:
+            message = "Multiple tasks with this ID deleted."
+        elif analyses.count() == 1:
+            message = "Task deleted."
+
+        if analyses.count() > 0:
+            # Delete dups too.
+            for analysis in analyses:
+                print "deleting target"
+                # Delete sample if not used.
+                if "file_id" in analysis["target"]:
+                    if results_db.analysis.find({"target.file_id": ObjectId(analysis["target"]["file_id"])}).count() == 1:
+                        fs.delete(ObjectId(analysis["target"]["file_id"]))
+                print "deleting screenshots"
+                # Delete screenshots.
+                for shot in analysis["shots"]:
+                    if results_db.analysis.find({"shots": ObjectId(shot)}).count() == 1:
+                        fs.delete(ObjectId(shot))
+                print "deleting pcap"
+                # Delete network pcap.
+                if "pcap_id" in analysis["network"] and results_db.analysis.find({"network.pcap_id": ObjectId(analysis["network"]["pcap_id"])}).count() == 1:
+                    fs.delete(ObjectId(analysis["network"]["pcap_id"]))
+
+                print "deleting sorted_pcap"
+                # Delete sorted pcap
+                if "sorted_pcap_id" in analysis["network"] and results_db.analysis.find({"network.sorted_pcap_id": ObjectId(analysis["network"]["sorted_pcap_id"])}).count() == 1:
+                    fs.delete(ObjectId(analysis["network"]["sorted_pcap_id"]))
+
+                print "deleting dropped"
+                # Delete dropped.
+                for drop in analysis["dropped"]:
+                    if "object_id" in drop and results_db.analysis.find({"dropped.object_id": ObjectId(drop["object_id"])}).count() == 1:
+                        fs.delete(ObjectId(drop["object_id"]))               
+                print "deleting calls"
+                # Delete calls.
+                for process in analysis.get("behavior", {}).get("processes", []):
+                    for call in process["calls"]:
+                        results_db.calls.remove({"_id": ObjectId(call)})
+                print "remove analysis data"
+                # Delete analysis data.
+                results_db.analysis.remove({"_id": ObjectId(analysis["_id"])})
+                # we may not have any suri entries
+                if suri.count() > 0:
+                    for suricata in suri:
+                        if "files" in suricata.keys():
+                            print "removing suri files"
+                            for entry in suricata["files"]:
+                                if "object_id" in entry and results_db.suricata.find({"files.object_id": ObjectId(entry["object_id"])}).count() == 1:
+                                    fs.delete(ObjectId(entry["object_id"]))
+
+                        results_db.suricata.remove({"_id": ObjectId(suricata["_id"])})
+        print "remove task from db"
+        db.delete_task(task_id)
+        print "removing file structure"
+        delete_folder(os.path.join(CUCKOO_ROOT, "storage", "analyses",
+                      "%s" % int(task_id)))
+
 def cuckoo_clean_failed_tasks():
     """Clean up failed tasks 
     It deletes all stored data from file system and configured databases (SQL
@@ -391,20 +483,7 @@ def cuckoo_clean_failed_tasks():
         for e in failed_tasks_a,failed_tasks_p,failed_tasks_r,failed_tasks_rc:
             for el2 in e:
                 new = el2.to_dict()
-                print int(new["id"])
-                try:
-                    results_db.suricata.remove({"info.id": int(new["id"])})
-                except:
-                    print "failed to remove suricata info (may not exist) %s" % (int(new["id"]))
-                try:
-                    results_db.analysis.remove({"info.id": int(new["id"])})
-                except:
-                    print "failed to remove analysis info (may not exist) %s" % (int(new["id"]))
-                if db.delete_task(new["id"]):
-                    delete_folder(os.path.join(CUCKOO_ROOT, "storage", "analyses",
-                            "%s" % int(new["id"])))
-                else:
-                    print "failed to remove faile task %s from DB" % (int(new["id"]))
+                remove_task(new["id"])
 
 
 def cuckoo_clean_failed_url_tasks():
@@ -441,19 +520,7 @@ def cuckoo_clean_failed_url_tasks():
                 for e in rtmp:
                     if e["info"]["id"]:
                         print e["info"]["id"]
-                        try:
-                            results_db.suricata.remove({"info.id": int(e["info"]["id"])})
-                        except:
-                            print "failed to remove %s" % (e["info"]["id"])
-                        if db.delete_task(e["info"]["id"]):
-                            delete_folder(os.path.join(CUCKOO_ROOT, "storage", "analyses",
-                                       "%s" % e["info"]["id"]))
-                        else:
-                            print "failed to remove %s" % (e["info"]["id"])
-                        try:
-                            results_db.analysis.remove({"info.id": int(e["info"]["id"])})
-                        except:
-                            print "failed to remove %s" % (e["info"]["id"])
+                        remove_task(e["info"]["id"])
                     else:
                         done = True
             else:
@@ -527,20 +594,9 @@ def cuckoo_clean_before_day(args):
         for entry in id_arr:
             e = int(entry["info.id"]) 
             try:
-                print "removing %s from suridb" % (e)
-                results_db.suricata.remove({"info.id": e})
-            except:
-                print "failed to remove suricata info (may not exist) %s" % (e)
-            try:
-                print "removing %s from analysis db" % (e)  
-                results_db.analysis.remove({"info.id": e})
-            except:
-                print "failed to remove analysis info (may not exist) %s" % (e)
-            if db.delete_task(e):
-                delete_folder(os.path.join(CUCKOO_ROOT, "storage", "analyses",
-                       "%s" % e))
-            else:
-                print "failed to remove faile task %s from DB" % (e)
+                remove_task(e)
+            except Exception as er:
+                print "failed to remove task %s %s" % (e,er)
 
 def cuckoo_clean_sorted_pcap_dump():
     """Clean up failed tasks 
