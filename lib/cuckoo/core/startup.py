@@ -444,7 +444,9 @@ def remove_task(task_id):
 
                         results_db.suricata.remove({"_id": ObjectId(suricata["_id"])})
         print "remove task from db"
-        db.delete_task(task_id)
+        result = db.delete_task(task_id)
+        if not result:
+            print "failed to remove from db"
         print "removing file structure"
         delete_folder(os.path.join(CUCKOO_ROOT, "storage", "analyses",
                       "%s" % int(task_id)))
@@ -574,29 +576,20 @@ def cuckoo_clean_before_day(args):
             print int(new["id"])
             id_arr.append({"info.id":(int(new["id"]))})
         print "number of matching records %s before suri/custom filter " % len(id_arr)
-        if id_arr and args.suricata_zero_alert_filter:
-            print "pruning results that have suri suri hits"
-            result = list(results_db.suricata.find({"alerts.alert": {"$exists": False}, "$or": id_arr},{"info.id":1}))
-            print result
-            tmp_arr =[]
-            for entry in result:
-                tmp_arr.append({"info.id":int(entry["info"]["id"])})
-            id_arr = tmp_arr
-            print "number of matching records %s after suri zero filter " % len(id_arr)
-        if id_arr and args.custom_include_filter:
-            print "applying custom filter"
-            result = list(results_db.analysis.find({"info.custom": {"$regex": args.custom_include_filter}, "$or": id_arr},{"info.id":1}))
-            tmp_arr = []
-            for entry in result:
-                tmp_arr.append({"info.id":int(entry["info"]["id"])})
-            id_arr = tmp_arr
-        print "number of matching records %s" % len(id_arr)
-        for entry in id_arr:
-            e = int(entry["info.id"]) 
+        for e in id_arr:
+            if args.suricata_zero_alert_filter:
+                result = results_db.suricata.find_one({"info.id":e["info.id"],"alerts.alert": {"$exists": False}},{"info.id":1})
+                if not result:
+                    continue
+            if args.custom_include_filter:
+                result = results_db.analysis.find_one({"info.id":e["info.id"],"info.custom": {"$regex": args.custom_include_filter}},{"info.id":1})
+                if not result:
+                    continue
             try:
-                remove_task(e)
+                print "removing %s matches all filters" % (e["info.id"])
+                remove_task(e["info.id"])
             except Exception as er:
-                print "failed to remove task %s %s" % (e,er)
+                print "failed to remove task %s %s" % (e["info.id"],er)
 
 def cuckoo_clean_sorted_pcap_dump():
     """Clean up failed tasks 
