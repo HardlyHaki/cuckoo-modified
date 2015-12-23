@@ -1079,7 +1079,8 @@ class Database(object):
     @classlock
     def list_tasks(self, limit=None, details=False, category=None,
                    offset=None, status=None, sample_id=None, not_status=None,
-                   completed_after=None, order_by=None,added_before=None):
+                   completed_after=None, order_by=None, added_before=None,
+                   id_before=None, id_after=None):
         """Retrieve list of task.
         @param limit: specify a limit of entries.
         @param details: if details about must be included
@@ -1090,6 +1091,9 @@ class Database(object):
         @param not_status: exclude this task status from filter
         @param completed_after: only list tasks completed after this timestamp
         @param order_by: definition which field to sort by
+        @param added_before: tasks added before a specific timestamp
+        @param id_before: filter by tasks which is less than this value
+        @param id_after filter by tasks which is greater than this value
         @return: list of tasks.
         """
         session = self.Session()
@@ -1106,6 +1110,10 @@ class Database(object):
                 search = search.options(joinedload("guest"), joinedload("errors"), joinedload("tags"))
             if sample_id is not None:
                 search = search.filter_by(sample_id=sample_id)
+            if id_before is not None:
+                search = search.filter(Task.id < id_before)
+            if id_after is not None:
+                search = search.filter(Task.id > id_after)
             if completed_after:
                 search = search.filter(Task.completed_on > completed_after)
             if added_before:
