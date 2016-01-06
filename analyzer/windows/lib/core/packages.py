@@ -51,7 +51,7 @@ def choose_package(file_type, file_name, exports):
         return "swf"
     elif file_name.endswith((".py", ".pyc")) or "Python script" in file_type:
         return "python"
-    elif file_name.endswith(".vbs"):
+    elif file_name.endswith(".vbs") or file_name.endswith(".vbe"):
         return "vbs"
     elif file_name.endswith(".msi"):
         return "msi"
@@ -61,7 +61,7 @@ def choose_package(file_type, file_name, exports):
         return "msg"
     elif file_name.endswith(".eml"):
         return "eml"
-    elif file_name.endswith(".js"):
+    elif file_name.endswith(".js") or file_name.endswith(".jse"):
         return "js"
     else:
         return "generic"
