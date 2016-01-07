@@ -75,7 +75,7 @@ def index(request):
             options += "kernel_analysis=yes"
 
 
-        if gateway.lower() == "all":
+        if gateway and gateway.lower() == "all":
             for e in settings.GATEWAYS:
                 if ipaddy_re.match(settings.GATEWAYS[e]):
                     task_gateways.append(settings.GATEWAYS[e])
