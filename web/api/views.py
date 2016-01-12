@@ -392,7 +392,7 @@ def tasks_create_url(request):
                                         "Available: {1}".format(machine,
                                         ", ".join(vm_list)))}
                 return jsonize(resp, response=True)
-        if gateway.lower() == "all":
+        if gateway and gateway.lower() == "all":
             for e in settings.GATEWAYS:
                 if ipaddy_re.match(settings.GATEWAYS[e]):
                     task_gateways.append(settings.GATEWAYS[e])
